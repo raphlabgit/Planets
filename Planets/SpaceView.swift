@@ -76,31 +76,31 @@ struct SpaceView: View {
 
         for hole in simulation.blackHoles {
             let intensity = hole.intensity(at: time)
-            let diameter = hole.size * 2.4 * (0.6 + 0.4 * intensity)
+            let scale = 0.6 + 0.4 * intensity
+            // L'anneau orange de l'image occupe environ 30 % de sa largeur : il entoure l'horizon.
+            let diameter = hole.size * 3.3 * scale
             let rect = CGRect(x: -diameter / 2, y: -diameter / 2, width: diameter, height: diameter)
+            let horizon = hole.size * scale
 
             var layer = context
             layer.opacity = intensity
             layer.translateBy(x: hole.position.x, y: hole.position.y)
-            layer.rotate(by: .radians(hole.rotation(at: time)))
-            layer.drawLayer { inner in
-                inner.draw(image, in: rect)
-                // Masque circulaire au bord adouci : l'image carrée devient un disque tourbillonnant.
-                inner.blendMode = .destinationIn
-                inner.fill(
-                    Path(ellipseIn: rect),
-                    with: .radialGradient(
-                        Gradient(stops: [
-                            .init(color: .white, location: 0),
-                            .init(color: .white, location: 0.7),
-                            .init(color: .white.opacity(0), location: 1),
-                        ]),
-                        center: .zero,
-                        startRadius: 0,
-                        endRadius: diameter / 2
-                    )
+            // Ombre noire sous l'image : le centre semi-transparent de l'image reste sombre sur le fond étoilé.
+            layer.fill(
+                Path(ellipseIn: CGRect(x: -horizon, y: -horizon, width: 2 * horizon, height: 2 * horizon)),
+                with: .radialGradient(
+                    Gradient(stops: [
+                        .init(color: .black, location: 0),
+                        .init(color: .black, location: 0.4),
+                        .init(color: .black.opacity(0), location: 1),
+                    ]),
+                    center: .zero,
+                    startRadius: 0,
+                    endRadius: horizon
                 )
-            }
+            )
+            layer.rotate(by: .radians(hole.rotation(at: time)))
+            layer.draw(image, in: rect)
         }
     }
 }
