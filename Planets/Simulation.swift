@@ -109,7 +109,7 @@ final class Simulation {
         absorbIntoBlackHoles()
         explodeOversizedPlanets()
         planets.removeAll { !$0.alive }
-        blackHoles.removeAll { $0.isExpired(at: time) }
+        releaseExpiredBlackHoles()
         keepAlive()
     }
 
@@ -226,6 +226,38 @@ final class Simulation {
                     blackHoles[h].swallowedMass += planets[i].mass
                 }
             }
+        }
+    }
+
+    /// En disparaissant, le trou noir explose et relâche toute la masse qu'il a avalée.
+    private func releaseExpiredBlackHoles() {
+        for hole in blackHoles where hole.isExpired(at: time) && hole.swallowedMass > 0 {
+            planets += makeBurst(of: hole)
+        }
+        blackHoles.removeAll { $0.isExpired(at: time) }
+    }
+
+    /// Planètes relâchées par un trou noir : autant de masse que celle avalée, répartie en
+    /// planètes de la taille de celles du lancement, projetées dans toutes les directions.
+    private func makeBurst(of hole: BlackHole) -> [Planet] {
+        let typicalSize = max(2, (settings.minSize + settings.maxSize) / 2)
+        let room = max(1, Self.maxPlanets - planets.count)
+        let count = min(room, max(1, Int((hole.swallowedMass / (typicalSize * typicalSize)).rounded())))
+        let weights = (0..<count).map { _ in Double.random(in: 0.5...1.5) }
+        let totalWeight = weights.reduce(0, +)
+
+        return weights.map { weight in
+            let direction = Vec2(angle: Double.random(in: 0..<(2 * .pi)), length: 1)
+            let speed = settings.explosionSpeed * Double.random(in: 0.6...1.4)
+            // Taille plafonnée sous la taille critique pour éviter une explosion en chaîne immédiate.
+            let size = min((hole.swallowedMass * weight / totalWeight).squareRoot(), settings.criticalSize * 0.9)
+            return Planet(
+                id: makeID(),
+                position: hole.position + direction * (hole.size / 2 * Double.random(in: 0.2...1)),
+                velocity: direction * speed,
+                size: size,
+                immuneUntil: time + Self.fragmentImmunity
+            )
         }
     }
 
