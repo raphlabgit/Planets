@@ -55,4 +55,4 @@ Bouton **Réinitialiser l'animation** dans les préférences (et ⌘R sur Mac). 
 | `PreferencesView.swift` | Écran des préférences | curseurs G / masse de `MainMenu.xib` |
 | `Vec2.swift` | Calcul vectoriel | `sommeVecteur:`, `multiplieVecteur:`… |
 
-Le fond (`space.tif`) et l'icône d'origine sont repris dans `Assets.xcassets`, avec la nouvelle image du trou noir (`blackhole.png`).
+L'icône d'origine est reprise dans `Assets.xcassets`, avec les nouvelles images du fond (`fond.png`) et du trou noir (`blackhole.png`).
