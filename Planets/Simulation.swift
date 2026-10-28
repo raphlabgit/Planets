@@ -34,7 +34,7 @@ final class Simulation {
     private var emptySince: Double?
 
     /// Constante de gravitation de base, multipliée par le réglage « Gravité ».
-    static let baseG = 120.0
+    static let baseG = 300.0
     /// Adoucissement de la gravité (points) pour éviter la singularité à distance nulle.
     static let softening = 6.0
     static let maxSpeed = 1500.0

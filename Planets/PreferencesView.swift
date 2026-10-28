@@ -54,7 +54,7 @@ struct PreferencesView: View {
                 }
 
                 Section("Physique") {
-                    SliderRow(title: "Gravité", value: $gravity, range: 0...5, step: 0.1) {
+                    SliderRow(title: "Gravité", value: $gravity, range: 0...10, step: 0.1) {
                         String(format: "× %.1f", $0)
                     }
                     SliderRow(title: "Taille critique avant explosion", value: $criticalSize, range: 15...150, step: 1) {
