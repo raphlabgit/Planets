@@ -55,7 +55,7 @@ struct SimulationSettings {
     var initialSpeed = 40.0
     var gravity = 1.0
     var criticalSize = 40.0
-    var explosionSpeed = 120.0
+    var explosionSpeed = 40.0
     var edgeMode = EdgeMode.wrap
     var blackHoleLifetime = 10.0
     var blackHoleSize = 60.0
