@@ -76,7 +76,7 @@ struct SpaceView: View {
 
         for hole in simulation.blackHoles {
             let intensity = hole.intensity(at: time)
-            let scale = 0.6 + 0.4 * intensity
+            let scale = hole.scale(at: time)
             // L'anneau orange de l'image occupe environ 30 % de sa largeur : il entoure l'horizon.
             let diameter = hole.size * 3.3 * scale
             let rect = CGRect(x: -diameter / 2, y: -diameter / 2, width: diameter, height: diameter)

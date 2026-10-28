@@ -218,7 +218,7 @@ final class Simulation {
     private func absorbIntoBlackHoles() {
         for h in blackHoles.indices {
             let hole = blackHoles[h]
-            let horizon = hole.size / 2 * (0.4 + 0.6 * hole.intensity(at: time))
+            let horizon = hole.size / 2 * hole.scale(at: time)
             for i in planets.indices where planets[i].alive {
                 let reach = horizon + planets[i].radius * 0.3
                 if (planets[i].position - hole.position).lengthSquared < reach * reach {
