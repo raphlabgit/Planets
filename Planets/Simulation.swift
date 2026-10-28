@@ -297,15 +297,11 @@ final class Simulation {
         }
     }
 
-    /// Comme dans la version d'origine : s'il ne reste qu'une planète, elle explose ;
-    /// s'il n'en reste plus du tout, une nouvelle série est lancée.
+    /// S'il ne reste qu'une planète (ou aucune) et plus de trou noir actif,
+    /// l'animation recommence depuis le début après un court instant.
     private func keepAlive() {
         guard blackHoles.isEmpty, planets.count <= 1 else {
             emptySince = nil
-            return
-        }
-        if let last = planets.first, last.size >= 12 {
-            planets = makeFragments(of: last, existing: 0)
             return
         }
         if let since = emptySince {
