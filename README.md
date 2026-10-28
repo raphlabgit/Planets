@@ -35,7 +35,7 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
 | Vitesse initiale max. | 40 px/s |
 | Gravité | × 1 |
 | Taille critique avant explosion | 40 px |
-| Puissance des explosions | 40 px/s |
+| Puissance des explosions | 360 px/s |
 | Bords de la fenêtre | Traverser (ou Rebondir) |
 | Durée de vie du trou noir | 10 s |
 | Taille / force du trou noir | 60 px / × 1 |

@@ -60,7 +60,7 @@ struct PreferencesView: View {
                     SliderRow(title: "Taille critique avant explosion", value: $criticalSize, range: 15...150, step: 1) {
                         "\(Int($0)) px"
                     }
-                    SliderRow(title: "Puissance des explosions", value: $explosionSpeed, range: 10...200, step: 5) {
+                    SliderRow(title: "Puissance des explosions", value: $explosionSpeed, range: 50...1000, step: 10) {
                         "\(Int($0)) px/s"
                     }
                     Picker("Bords de la fenêtre", selection: $edgeMode) {
