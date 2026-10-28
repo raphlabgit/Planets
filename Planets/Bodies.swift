@@ -62,11 +62,19 @@ struct BlackHole: Identifiable {
     }
 
     /// Échelle d'affichage et de l'horizon : il grandit en apparaissant, puis gonfle
-    /// d'environ 30 % juste avant d'exploser en disparaissant.
+    /// de plus en plus vite (jusqu'à ×1,8) juste avant d'exploser.
     func scale(at time: Double) -> Double {
         let growIn = 0.6 + 0.4 * rampIn(at: time)
-        let swell = 1 + 0.3 * (1 - rampOut(at: time))
-        return growIn * swell
+        let progress = 1 - rampOut(at: time)
+        return growIn * (1 + 0.8 * progress * progress)
+    }
+
+    /// Opacité d'affichage : le trou noir reste bien visible pendant qu'il gonfle
+    /// et ne s'efface que dans les derniers instants, au moment de l'explosion.
+    func opacity(at time: Double) -> Double {
+        let progress = 1 - rampOut(at: time)
+        let vanish = progress < 0.85 ? 1 : (1 - progress) / 0.15
+        return min(rampIn(at: time), vanish)
     }
 
     /// Angle de rotation (radians) : le trou noir tourne de plus en plus vite,

@@ -75,7 +75,6 @@ struct SpaceView: View {
         let time = simulation.time
 
         for hole in simulation.blackHoles {
-            let intensity = hole.intensity(at: time)
             let scale = hole.scale(at: time)
             // L'anneau orange de l'image occupe environ 30 % de sa largeur : il entoure l'horizon.
             let diameter = hole.size * 3.3 * scale
@@ -83,7 +82,7 @@ struct SpaceView: View {
             let horizon = hole.size * scale
 
             var layer = context
-            layer.opacity = intensity
+            layer.opacity = hole.opacity(at: time)
             layer.translateBy(x: hole.position.x, y: hole.position.y)
             // Ombre noire sous l'image : le centre semi-transparent de l'image reste sombre sur le fond étoilé.
             layer.fill(
