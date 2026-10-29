@@ -43,7 +43,9 @@ enum PrefKey {
     static let colorBySize = "colorBySize"
     static let showVectors = "showVectors"
     static let showPlanetCount = "showPlanetCount"
+    static let gameMode = "gameMode"
 
+    /// Réglages remis à zéro par « Rétablir les valeurs par défaut » (le mode jeu n'en fait pas partie).
     static let all = [
         planetCount, minSize, maxSize, initialSpeed, gravity, criticalSize, explosionSpeed, edgeMode,
         blackHoleLifetime, blackHoleSize, blackHoleStrength, showBackground, colorBySize, showVectors,
@@ -67,6 +69,8 @@ struct SimulationSettings {
     var colorBySize = true
     var showVectors = false
     var showPlanetCount = true
+    /// Mode jeu « Deviens un soleil » (sinon mode contemplation).
+    var gameMode = false
 
     static let defaults = SimulationSettings()
 
@@ -109,6 +113,7 @@ struct SimulationSettings {
             PrefKey.colorBySize: d.colorBySize,
             PrefKey.showVectors: d.showVectors,
             PrefKey.showPlanetCount: d.showPlanetCount,
+            PrefKey.gameMode: d.gameMode,
         ])
     }
 
@@ -139,6 +144,7 @@ struct SimulationSettings {
         s.colorBySize = bool(PrefKey.colorBySize, s.colorBySize)
         s.showVectors = bool(PrefKey.showVectors, s.showVectors)
         s.showPlanetCount = bool(PrefKey.showPlanetCount, s.showPlanetCount)
+        s.gameMode = bool(PrefKey.gameMode, s.gameMode)
         return s
     }
 }

@@ -26,6 +26,8 @@ struct SpaceView: View {
     // MARK: - Planètes
 
     private func drawPlanets(in context: inout GraphicsContext, settings: SimulationSettings) {
+        // Mode jeu : la planète du joueur est entourée de bleu, celles qui peuvent la manger de rouge.
+        let player = simulation.isGame ? simulation.player : nil
         for planet in simulation.planets {
             let r = planet.radius
             let x = planet.position.x
@@ -54,6 +56,23 @@ struct SpaceView: View {
             let sunness = Self.sunness(size: planet.size, critical: settings.criticalSize)
             if sunness > 0 {
                 drawSun(planet, sunness: sunness, in: &context)
+            }
+
+            if let player {
+                if planet.id == player.id {
+                    let ring = r + 4
+                    context.stroke(
+                        Path(ellipseIn: CGRect(x: x - ring, y: y - ring, width: 2 * ring, height: 2 * ring)),
+                        with: .color(Color(red: 0.4, green: 0.8, blue: 1)),
+                        lineWidth: 2
+                    )
+                } else if planet.mass > player.mass {
+                    context.stroke(
+                        Path(ellipseIn: rect.insetBy(dx: -2, dy: -2)),
+                        with: .color(.red.opacity(0.75)),
+                        lineWidth: 1.5
+                    )
+                }
             }
 
             if settings.showVectors {

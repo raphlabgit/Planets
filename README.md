@@ -32,6 +32,19 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
   « Nombre de planètes » des préférences (même masse totale) ; s'il n'en reste aucune, l'animation recommence depuis le début.
 - Plein écran sur iPhone ; fenêtre redimensionnable sur iPad (Split View, Stage Manager) et sur Mac.
 
+## Mode jeu « Deviens un soleil »
+
+Le bouton 🎮 (en haut à droite) passe du mode contemplation au mode jeu, et ✨ revient à la contemplation.
+
+- Tu pilotes ta planète (entourée de bleu) : garde le doigt (ou la souris) appuyé, elle file vers lui
+  et ralentit en arrivant. Elle devient plus lente en grossissant, mais reste pilotable.
+- Absorbe les planètes plus petites pour grossir ; fuis celles entourées de rouge, plus grosses que toi.
+- Tu gagnes en devenant un soleil (80 % de la taille critique). La barre en haut à gauche montre ta
+  progression, avec le chrono ; le meilleur temps est enregistré.
+- Tu perds si une planète plus grosse te percute, si un trou noir t'avale (ils apparaissent tout seuls),
+  ou si tu dépasses la taille critique d'un coup et explose.
+- De nouvelles petites planètes arrivent par les bords quand il en reste peu.
+
 ## Préférences (bouton ⚙︎, ou ⌘, sur Mac)
 
 Les tailles (planètes, taille critique, trou noir) sont données pour une fenêtre dont le petit côté

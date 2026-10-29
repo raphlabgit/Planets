@@ -13,6 +13,11 @@
 //  - Un trou noir attire fortement les planètes, absorbe celles qui franchissent
 //    son horizon, puis s'évanouit à la fin de sa durée de vie.
 //
+//  Mode jeu « Deviens un soleil » : le joueur pilote sa planète (doigt ou souris), absorbe
+//  les plus petites et doit fuir les plus grosses. Il gagne en devenant un soleil (80 % de
+//  la taille critique) ; il perd s'il est percuté par plus gros, avalé par un trou noir ou
+//  s'il dépasse la taille critique et explose.
+//
 //  La classe n'est volontairement pas observable : elle est avancée par la vue à
 //  chaque image (TimelineView) et ne déclenche donc aucune mise à jour SwiftUI.
 //
@@ -35,6 +40,20 @@ final class Simulation {
     private var needsReset = true
     private var emptySince: Double?
 
+    // MARK: Mode jeu
+
+    /// Vrai en mode jeu, faux en mode contemplation.
+    private(set) var isGame = false
+    private(set) var gameState = GameState.playing
+    /// Durée de la partie en cours (s'arrête à la victoire ou à la défaite).
+    private(set) var gameTime: Double = 0
+    /// Identifiant de la planète du joueur (nil en contemplation ou après une défaite).
+    private(set) var playerID: Int?
+    /// Point vers lequel le joueur dirige sa planète (doigt ou souris enfoncé).
+    private var steerTarget: Vec2?
+    private var nextBlackHoleTime: Double = 0
+    private var nextSpawnTime: Double = 0
+
     /// Constante de gravitation de base, multipliée par le réglage « Gravité ».
     static let baseG = 300.0
     /// Adoucissement de la gravité (points) pour éviter la singularité à distance nulle.
@@ -50,12 +69,47 @@ final class Simulation {
     static let blackHoleDensity = 4.0
     /// Nombre maximal d'animations d'impact simultanées.
     static let maxImpacts = 40
+    /// Vitesse maximale de la planète du joueur vers le doigt (points/s, pour la fenêtre de référence).
+    static let playerSpeed = 260.0
+    /// Rapidité avec laquelle la planète du joueur obéit au doigt (1/s).
+    static let playerResponse = 4.0
+    /// Freinage de la planète du joueur quand le doigt est levé (1/s).
+    static let playerDrag = 0.9
+    /// La planète du joueur ralentit en grossissant, mais garde au moins cette mobilité.
+    static let playerMinMobility = 0.35
+    /// En mode jeu, on gagne en devenant un soleil : 80 % de la taille critique.
+    static let sunThreshold = 0.8
+    /// Clé UserDefaults du meilleur temps pour devenir un soleil.
+    static let bestTimeKey = "bestSunTime"
+
+    /// La planète du joueur, si elle existe encore.
+    var player: Planet? {
+        guard let playerID else { return nil }
+        return planets.first { $0.id == playerID }
+    }
+
+    /// Progression vers le soleil : 0 au départ, 1 à la victoire.
+    var playerProgress: Double {
+        guard let player else { return gameState.isWon ? 1 : 0 }
+        return min(1, player.size / (settings.criticalSize * Self.sunThreshold))
+    }
+
+    /// Meilleur temps enregistré pour devenir un soleil, en secondes.
+    var bestTime: Double? {
+        let value = UserDefaults.standard.double(forKey: Self.bestTimeKey)
+        return value > 0 ? value : nil
+    }
 
     // MARK: - Commandes
 
     /// Recrée les planètes de départ à la prochaine image (avec la taille de fenêtre actuelle).
     func requestReset() {
         needsReset = true
+    }
+
+    /// Mode jeu : dirige la planète du joueur vers ce point (nil quand le doigt est levé).
+    func steer(to point: CGPoint?) {
+        steerTarget = point.map { Vec2($0) }
     }
 
     func addBlackHole(at point: CGPoint) {
@@ -79,6 +133,10 @@ final class Simulation {
         settings = preferences.scaled(for: size)
         if size != bounds {
             fit(to: size)
+        }
+        if settings.gameMode != isGame {
+            isGame = settings.gameMode
+            needsReset = true
         }
 
         if needsReset {
@@ -128,6 +186,101 @@ final class Simulation {
         blackHoles.removeAll()
         impacts.removeAll()
         planets = (0..<max(0, settings.planetCount)).map { _ in randomPlanet() }
+        playerID = nil
+        steerTarget = nil
+        gameState = .playing
+        gameTime = 0
+        if isGame {
+            startGame()
+        }
+    }
+
+    // MARK: - Mode jeu
+
+    /// Place la planète du joueur au centre, un peu plus grosse que la moyenne, et dégage
+    /// les planètes trop proches pour laisser un départ tranquille.
+    private func startGame() {
+        let center = Vec2(x: Double(bounds.width) / 2, y: Double(bounds.height) / 2)
+        let clearance = Double(min(bounds.width, bounds.height)) * 0.2
+        planets.removeAll { ($0.position - center).length < clearance }
+        let player = Planet(
+            id: makeID(),
+            position: center,
+            velocity: .zero,
+            size: settings.maxSize * 1.2,
+            immuneUntil: time + 1.5
+        )
+        playerID = player.id
+        planets.append(player)
+        nextBlackHoleTime = time + Double.random(in: 8...12)
+        nextSpawnTime = time
+    }
+
+    private func endGame(_ state: GameState) {
+        guard isGame, gameState == .playing else { return }
+        gameState = state
+        steerTarget = nil
+        if case .won(let duration) = state, bestTime.map({ duration < $0 }) ?? true {
+            UserDefaults.standard.set(duration, forKey: Self.bestTimeKey)
+        }
+    }
+
+    /// À chaque pas en mode jeu : chrono, victoire, nouvelles planètes pour nourrir le
+    /// joueur, et trous noirs pièges qui apparaissent d'eux-mêmes.
+    private func updateGame(_ h: Double) {
+        guard isGame else { return }
+        if gameState == .playing {
+            gameTime += h
+            if let player, player.size >= settings.criticalSize * Self.sunThreshold {
+                endGame(.won(gameTime))
+            }
+        }
+
+        // De nouvelles petites planètes arrivent par les bords quand il en reste peu.
+        let others = planets.count - (playerID == nil ? 0 : 1)
+        if time >= nextSpawnTime, others < max(5, settings.planetCount / 2) {
+            planets.append(edgePlanet())
+            nextSpawnTime = time + 0.5
+        }
+
+        // Un trou noir piège apparaît de temps en temps, loin du joueur.
+        if blackHoles.isEmpty, time >= nextBlackHoleTime {
+            let spot = randomPoint(awayFrom: player?.position, distance: Double(min(bounds.width, bounds.height)) / 3)
+            addBlackHole(at: spot.cgPoint)
+            nextBlackHoleTime = time + settings.blackHoleLifetime + Double.random(in: 6...12)
+        }
+    }
+
+    /// Petite planète qui entre par un bord de la fenêtre, en direction de l'intérieur.
+    private func edgePlanet() -> Planet {
+        var planet = randomPlanet()
+        let width = Double(bounds.width)
+        let height = Double(bounds.height)
+        switch Int.random(in: 0..<4) {
+        case 0: planet.position = Vec2(x: 0, y: Double.random(in: 0..<height))
+        case 1: planet.position = Vec2(x: width, y: Double.random(in: 0..<height))
+        case 2: planet.position = Vec2(x: Double.random(in: 0..<width), y: 0)
+        default: planet.position = Vec2(x: Double.random(in: 0..<width), y: height)
+        }
+        let center = Vec2(x: width / 2, y: height / 2)
+        let inward = center - planet.position
+        let distance = max(1, inward.length)
+        planet.velocity = inward / distance * max(20, settings.initialSpeed) * Double.random(in: 0.5...1)
+        return planet
+    }
+
+    /// Point au hasard dans la fenêtre, si possible à au moins `distance` de `origin`.
+    private func randomPoint(awayFrom origin: Vec2?, distance: Double) -> Vec2 {
+        var point = Vec2.zero
+        for _ in 0..<12 {
+            point = Vec2(
+                x: Double.random(in: 0..<max(1, Double(bounds.width))),
+                y: Double.random(in: 0..<max(1, Double(bounds.height)))
+            )
+            guard let origin else { return point }
+            if (point - origin).length >= distance { return point }
+        }
+        return point
     }
 
     private func step(_ h: Double) {
@@ -139,6 +292,7 @@ final class Simulation {
         planets.removeAll { !$0.alive }
         releaseExpiredBlackHoles()
         impacts.removeAll { $0.progress(at: time) >= 1 }
+        updateGame(h)
         keepAlive()
     }
 
@@ -176,12 +330,32 @@ final class Simulation {
             }
         }
 
+        // Mode jeu : la planète du joueur file vers le doigt et ralentit en arrivant dessus
+        // (sans tourner autour) ; doigt levé, elle est simplement freinée.
+        var playerIndex: Int?
+        if let playerID, gameState == .playing {
+            playerIndex = planets.firstIndex { $0.id == playerID }
+        }
+        if let index = playerIndex {
+            if let target = steerTarget {
+                let toward = target - positions[index]
+                let distance = toward.length
+                let mobility = playerMobility(planets[index])
+                let speed = min(Self.playerSpeed * SimulationSettings.sizeScale(for: bounds), distance * 4)
+                let wanted = distance > 0.5 ? toward * (speed / distance / mobility) : .zero
+                acceleration[index] += (wanted - planets[index].velocity) * Self.playerResponse
+            } else {
+                acceleration[index] -= planets[index].velocity * Self.playerDrag
+            }
+        }
+
         let width = Double(bounds.width)
         let height = Double(bounds.height)
         for i in 0..<n {
             var p = planets[i]
             p.velocity = (p.velocity + acceleration[i] * h).clamped(maxLength: Self.maxSpeed)
-            p.position += p.velocity * (h * p.mobility(reference: settings.maxSize))
+            let mobility = i == playerIndex ? playerMobility(p) : p.mobility(reference: settings.maxSize)
+            p.position += p.velocity * (h * mobility)
             switch settings.edgeMode {
             case .wrap:
                 p.position.x = wrap(p.position.x, width)
@@ -192,6 +366,12 @@ final class Simulation {
             }
             planets[i] = p
         }
+    }
+
+    /// Comme les autres planètes, celle du joueur ralentit en grossissant, mais moins :
+    /// elle reste pilotable jusqu'au soleil.
+    private func playerMobility(_ planet: Planet) -> Double {
+        max(Self.playerMinMobility, planet.mobility(reference: settings.maxSize))
     }
 
     private func wrap(_ value: Double, _ limit: Double) -> Double {
@@ -240,6 +420,10 @@ final class Simulation {
         planets[big].position = (a.position * a.mass + b.position * b.mass) / total
         planets[big].size = total.squareRoot()
         planets[small].alive = false
+        if b.id == playerID {
+            playerID = nil
+            endGame(.lost("Percuté par une planète plus grosse"))
+        }
 
         // Seules les grosses planètes (40 % de la taille critique et plus) réagissent au choc.
         if planets[big].size >= settings.criticalSize * 0.4, impacts.count < Self.maxImpacts {
@@ -264,6 +448,10 @@ final class Simulation {
                 if (planets[i].position - hole.position).lengthSquared < reach * reach {
                     planets[i].alive = false
                     blackHoles[h].swallowedMass += planets[i].mass
+                    if planets[i].id == playerID {
+                        playerID = nil
+                        endGame(.lost("Avalé par un trou noir"))
+                    }
                 }
             }
         }
@@ -316,6 +504,10 @@ final class Simulation {
         var fragments: [Planet] = []
         for i in planets.indices where planets[i].alive && planets[i].size > settings.criticalSize {
             planets[i].alive = false
+            if planets[i].id == playerID {
+                playerID = nil
+                endGame(.lost("Trop gros : tu as dépassé la taille critique et explosé"))
+            }
             fragments += makeFragments(of: planets[i], existing: planets.count + fragments.count)
         }
         planets += fragments
@@ -350,7 +542,8 @@ final class Simulation {
     /// autant de petites planètes que le « Nombre de planètes » des préférences, et l'animation
     /// continue. S'il n'en reste aucune, l'animation recommence depuis le début après un court instant.
     private func keepAlive() {
-        guard blackHoles.isEmpty, planets.count <= 1 else {
+        // En mode jeu, de nouvelles planètes arrivent par les bords (voir `updateGame`).
+        guard !isGame, blackHoles.isEmpty, planets.count <= 1 else {
             emptySince = nil
             return
         }
@@ -399,5 +592,19 @@ final class Simulation {
     private func makeID() -> Int {
         nextID += 1
         return nextID
+    }
+}
+
+/// État d'une partie en mode jeu.
+enum GameState: Equatable {
+    case playing
+    /// Devenu un soleil, avec le temps mis en secondes.
+    case won(Double)
+    /// Partie perdue, avec la raison à afficher.
+    case lost(String)
+
+    var isWon: Bool {
+        if case .won = self { return true }
+        return false
     }
 }
