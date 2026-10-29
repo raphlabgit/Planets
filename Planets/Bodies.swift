@@ -37,7 +37,7 @@ struct Planet: Identifiable {
 
 struct BlackHole: Identifiable {
     let id: Int
-    let position: Vec2
+    var position: Vec2
     let birth: Double
     /// Durée de vie en secondes.
     let lifetime: Double

@@ -74,8 +74,10 @@ final class Simulation {
     /// Avance la simulation jusqu'à `date` dans une zone de taille `size`.
     func update(date: Date, size: CGSize) {
         settings = SimulationSettings.load()
-        bounds = size
         guard size.width > 1, size.height > 1 else { return }
+        if size != bounds {
+            fit(to: size)
+        }
 
         if needsReset {
             reset()
@@ -91,6 +93,24 @@ final class Simulation {
             let h = min(Self.fixedStep, remaining)
             step(h)
             remaining -= h
+        }
+    }
+
+    /// Adapte la scène à la nouvelle taille de la fenêtre (premier affichage, redimensionnement,
+    /// rotation de l'écran) : positions mises à l'échelle pour garder la même répartition.
+    private func fit(to size: CGSize) {
+        let old = bounds
+        bounds = size
+        guard old.width > 1, old.height > 1 else { return }
+        let sx = Double(size.width / old.width)
+        let sy = Double(size.height / old.height)
+        for i in planets.indices {
+            planets[i].position.x *= sx
+            planets[i].position.y *= sy
+        }
+        for h in blackHoles.indices {
+            blackHoles[h].position.x *= sx
+            blackHoles[h].position.y *= sy
         }
     }
 
