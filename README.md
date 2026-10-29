@@ -19,6 +19,8 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
 - La vitesse d'une planète est inversement proportionnelle à sa taille : au-delà de la taille maximale
   du lancement, une planète deux fois plus grosse va deux fois moins vite, et les plus grosses bougent à peine.
 - Lors d'un choc, la plus grosse absorbe la plus petite et grandit (masse et quantité de mouvement conservées).
+- Les plus grosses planètes (à partir de la moitié de la taille critique) se transforment peu à peu en **soleils** :
+  halo qui pulse et surface animée.
 - Au-delà de la **taille critique**, la planète explose en fragments plus petits, chacun avec sa taille,
   sa vitesse et sa direction.
 - Un **clic / toucher** dans l'espace fait apparaître un **trou noir** : il attire et absorbe les planètes

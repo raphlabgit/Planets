@@ -51,6 +51,11 @@ struct SpaceView: View {
                 )
             )
 
+            let sunness = Self.sunness(size: planet.size, critical: settings.criticalSize)
+            if sunness > 0 {
+                drawSun(planet, sunness: sunness, in: &context)
+            }
+
             if settings.showVectors {
                 var line = Path()
                 line.move(to: center)
@@ -59,6 +64,66 @@ struct SpaceView: View {
                 context.stroke(line, with: .color(.red.opacity(0.6)), lineWidth: 1)
             }
         }
+    }
+
+    // MARK: - Soleils
+
+    /// 0 pour une planète ordinaire, puis 0 → 1 entre 50 % et 80 % de la taille critique :
+    /// les plus grosses planètes se transforment progressivement en soleils.
+    static func sunness(size: Double, critical: Double) -> Double {
+        min(1, max(0, (size / max(critical, 1) - 0.5) / 0.3))
+    }
+
+    /// Soleil : halo qui pulse, surface incandescente et granulation qui tourne lentement.
+    /// Quatre remplissages par soleil seulement, et seules les plus grosses planètes sont concernées.
+    private func drawSun(_ planet: Planet, sunness: Double, in context: inout GraphicsContext) {
+        let r = planet.radius
+        let center = planet.position.cgPoint
+        // Le numéro de la planète décale l'animation : les soleils ne pulsent pas tous ensemble.
+        let phase = simulation.time + Double(planet.id % 97)
+        let pulse = 1 + 0.1 * sin(phase * 2.3) + 0.05 * sin(phase * 5.1)
+
+        func disk(_ radius: Double) -> Path {
+            Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius))
+        }
+
+        var layer = context
+        layer.opacity = sunness
+
+        // Halo lumineux additif autour du soleil.
+        let halo = r * 2.4 * pulse
+        layer.blendMode = .plusLighter
+        layer.fill(disk(halo), with: .radialGradient(
+            Gradient(stops: [
+                .init(color: Color(red: 1, green: 0.8, blue: 0.35).opacity(0.7), location: 0.3),
+                .init(color: Color(red: 1, green: 0.45, blue: 0.1).opacity(0.3), location: 0.55),
+                .init(color: Color(red: 1, green: 0.3, blue: 0).opacity(0), location: 1),
+            ]),
+            center: center, startRadius: 0, endRadius: halo
+        ))
+
+        // Surface : cœur blanc-jaune, bord orange-rouge.
+        layer.blendMode = .normal
+        layer.fill(disk(r), with: .radialGradient(
+            Gradient(colors: [
+                Color(red: 1, green: 1, blue: 0.85),
+                Color(red: 1, green: 0.82, blue: 0.3),
+                Color(red: 0.95, green: 0.4, blue: 0.05),
+            ]),
+            center: center, startRadius: 0, endRadius: r
+        ))
+
+        // Granulation : deux dégradés coniques qui tournent en sens inverse donnent une surface qui bouillonne.
+        layer.opacity = sunness * 0.3
+        layer.fill(disk(r * 0.97), with: .conicGradient(
+            Gradient(colors: [.yellow, .orange, .red, .orange, .yellow, .orange, .red, .yellow]),
+            center: center, angle: .radians(phase * 0.5)
+        ))
+        layer.opacity = sunness * 0.2
+        layer.fill(disk(r * 0.9), with: .conicGradient(
+            Gradient(colors: [.white, .orange, .yellow, .red, .white]),
+            center: center, angle: .radians(-phase * 0.8)
+        ))
     }
 
     /// Bleu pâle pour les petites planètes, puis jaune, orange et rouge à l'approche de la taille critique.
