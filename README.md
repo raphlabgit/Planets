@@ -16,6 +16,8 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
 - Au lancement, un nombre défini de planètes est placé au hasard, chacune avec sa taille, sa masse
   (proportionnelle à la surface, donc définie par la taille) et un vecteur vitesse.
 - Chaque planète est attirée par toutes les autres (gravitation de Newton).
+- La vitesse d'une planète est inversement proportionnelle à sa taille : au-delà de la taille maximale
+  du lancement, une planète deux fois plus grosse va deux fois moins vite, et les plus grosses bougent à peine.
 - Lors d'un choc, la plus grosse absorbe la plus petite et grandit (masse et quantité de mouvement conservées).
 - Au-delà de la **taille critique**, la planète explose en fragments plus petits, chacun avec sa taille,
   sa vitesse et sa direction.

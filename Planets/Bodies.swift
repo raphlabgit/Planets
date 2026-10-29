@@ -26,6 +26,13 @@ struct Planet: Identifiable {
     var mass: Double { size * size }
 
     func isImmune(at time: Double) -> Bool { time < immuneUntil }
+
+    /// Part de sa vitesse avec laquelle la planète se déplace réellement : la vitesse est
+    /// inversement proportionnelle à la taille. Jusqu'à `reference` (la taille maximale
+    /// au lancement) la planète bouge normalement ; deux fois plus grosse, deux fois moins vite.
+    func mobility(reference: Double) -> Double {
+        min(1, max(1, reference) / size)
+    }
 }
 
 struct BlackHole: Identifiable {

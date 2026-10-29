@@ -152,7 +152,7 @@ final class Simulation {
         for i in 0..<n {
             var p = planets[i]
             p.velocity = (p.velocity + acceleration[i] * h).clamped(maxLength: Self.maxSpeed)
-            p.position += p.velocity * h
+            p.position += p.velocity * (h * p.mobility(reference: settings.maxSize))
             switch settings.edgeMode {
             case .wrap:
                 p.position.x = wrap(p.position.x, width)
@@ -290,7 +290,7 @@ final class Simulation {
             return Planet(
                 id: makeID(),
                 position: parent.position + direction * (parent.radius * 0.5),
-                velocity: parent.velocity + direction * speed,
+                velocity: parent.velocity * parent.mobility(reference: settings.maxSize) + direction * speed,
                 size: (parent.mass * weight / totalWeight).squareRoot(),
                 immuneUntil: time + Self.fragmentImmunity
             )

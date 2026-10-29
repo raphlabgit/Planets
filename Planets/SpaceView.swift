@@ -54,7 +54,8 @@ struct SpaceView: View {
             if settings.showVectors {
                 var line = Path()
                 line.move(to: center)
-                line.addLine(to: (planet.position + planet.velocity * 0.5).cgPoint)
+                let speed = planet.velocity * planet.mobility(reference: settings.maxSize)
+                line.addLine(to: (planet.position + speed * 0.5).cgPoint)
                 context.stroke(line, with: .color(.red.opacity(0.6)), lineWidth: 1)
             }
         }
