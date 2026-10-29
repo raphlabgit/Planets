@@ -45,12 +45,20 @@ struct BlackHole: Identifiable {
     var size: Double
     /// Masse totale absorbée, relâchée quand le trou noir disparaît.
     var swallowedMass: Double = 0
+    /// Trou noir piège du mode jeu : il naît minuscule, grandit pendant `trapGrowTime`,
+    /// puis attire très fort tout ce qui passe près de lui.
+    var isTrap = false
+
+    /// Mode jeu : durée de croissance d'un trou noir piège.
+    static let trapGrowTime = 2.0
+    /// Mode jeu : taille de départ d'un trou noir piège, par rapport à sa taille normale.
+    static let trapStartScale = 0.05
 
     func age(at time: Double) -> Double { time - birth }
 
     func isExpired(at time: Double) -> Bool { age(at: time) >= lifetime }
 
-    private var fadeIn: Double { min(0.5, lifetime * 0.2) }
+    private var fadeIn: Double { isTrap ? Self.trapGrowTime : min(0.5, lifetime * 0.2) }
     private var fadeOut: Double { min(1.5, lifetime * 0.4) }
 
     /// Progression de l'apparition : 0 → 1.
@@ -63,15 +71,22 @@ struct BlackHole: Identifiable {
         fadeOut > 0 ? min(1, max(0, (lifetime - age(at: time)) / fadeOut)) : 1
     }
 
-    /// 0 → 1 à l'apparition, 1 pendant la vie, 1 → 0 quand il s'évanouit.
+    /// Force de la gravité : 0 → 1 à l'apparition, 1 pendant la vie, 1 → 0 quand il s'évanouit.
+    /// Un piège encore en croissance n'attire presque pas : sa force monte comme le carré
+    /// de sa croissance.
     func intensity(at time: Double) -> Double {
-        min(rampIn(at: time), rampOut(at: time))
+        let ramp = rampIn(at: time)
+        return min(isTrap ? ramp * ramp : ramp, rampOut(at: time))
     }
 
-    /// Échelle d'affichage et de l'horizon : il grandit en apparaissant, puis gonfle
-    /// de plus en plus vite (jusqu'à ×1,8) juste avant d'exploser.
+    /// Vrai une fois la croissance terminée (le piège attire alors à pleine force).
+    func isFormed(at time: Double) -> Bool { rampIn(at: time) >= 1 }
+
+    /// Échelle d'affichage et de l'horizon : il grandit en apparaissant (un piège part de
+    /// presque rien), puis gonfle de plus en plus vite (jusqu'à ×1,8) juste avant d'exploser.
     func scale(at time: Double) -> Double {
-        let growIn = 0.6 + 0.4 * rampIn(at: time)
+        let start = isTrap ? Self.trapStartScale : 0.6
+        let growIn = start + (1 - start) * rampIn(at: time)
         let progress = 1 - rampOut(at: time)
         return growIn * (1 + 0.8 * progress * progress)
     }
@@ -81,7 +96,9 @@ struct BlackHole: Identifiable {
     func opacity(at time: Double) -> Double {
         let progress = 1 - rampOut(at: time)
         let vanish = progress < 0.85 ? 1 : (1 - progress) / 0.15
-        return min(rampIn(at: time), vanish)
+        // Un piège est bien visible dès sa naissance, même minuscule.
+        let appear = isTrap ? min(1, age(at: time) / 0.3) : rampIn(at: time)
+        return min(appear, vanish)
     }
 
     /// Angle de rotation (radians) : le trou noir tourne de plus en plus vite,

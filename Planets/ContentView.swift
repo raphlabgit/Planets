@@ -5,7 +5,8 @@
 //  Fenêtre principale : fond étoilé, simulation, compteur de planètes, bouton du mode et
 //  bouton des préférences.
 //  Mode contemplation : un clic (ou un toucher) dans l'espace fait apparaître un trou noir.
-//  Mode jeu : le doigt (ou la souris enfoncée) attire la planète du joueur.
+//  Mode jeu : appuyer vise (ligne pointillée), relâcher lance la planète du joueur dans
+//  cette direction ; elle continue ensuite tout droit.
 //
 
 import SwiftUI
@@ -13,6 +14,9 @@ import SwiftUI
 struct ContentView: View {
     @State private var simulation = Simulation()
     @State private var showPreferences = false
+    /// Vrai pendant que le doigt est appuyé ; revient à faux même si le geste est interrompu
+    /// (appel, centre de contrôle…), pour effacer la ligne de visée.
+    @GestureState private var pressing = false
     @AppStorage(PrefKey.showBackground) private var showBackground = SimulationSettings.defaults.showBackground
     @AppStorage(PrefKey.showPlanetCount) private var showPlanetCount = SimulationSettings.defaults.showPlanetCount
     @AppStorage(PrefKey.gameMode) private var gameMode = SimulationSettings.defaults.gameMode
@@ -33,21 +37,25 @@ struct ContentView: View {
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
+                        .updating($pressing) { _, state, _ in state = true }
                         .onChanged { value in
-                            if gameMode { simulation.steer(to: value.location) }
+                            if gameMode { simulation.aim(at: value.location) }
                         }
                         .onEnded { value in
                             if gameMode {
-                                simulation.steer(to: nil)
+                                simulation.launch(toward: value.location)
                             } else if hypot(value.translation.width, value.translation.height) < 10 {
                                 // Un simple toucher (sans glisser) crée un trou noir.
                                 simulation.addBlackHole(at: value.location)
                             }
                         }
                 )
+                .onChange(of: pressing) { _, isPressing in
+                    if !isPressing { simulation.aim(at: nil) }
+                }
                 .accessibilityLabel("Espace")
                 .accessibilityHint(gameMode
-                    ? "Gardez le doigt appuyé pour attirer votre planète"
+                    ? "Touchez pour lancer votre planète dans cette direction"
                     : "Touchez pour créer un trou noir")
         }
         .ignoresSafeArea()

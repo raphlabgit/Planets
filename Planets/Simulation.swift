@@ -13,8 +13,8 @@
 //  - Un trou noir attire fortement les planètes, absorbe celles qui franchissent
 //    son horizon, puis s'évanouit à la fin de sa durée de vie.
 //
-//  Mode jeu « Deviens un soleil » : le joueur pilote sa planète (doigt ou souris), absorbe
-//  les plus petites et doit fuir les plus grosses. Il gagne en devenant un soleil (80 % de
+//  Mode jeu « Deviens un soleil » : le joueur lance sa planète dans une direction (doigt ou
+//  souris), absorbe les plus petites et doit fuir les plus grosses. Il gagne en devenant un soleil (80 % de
 //  la taille critique) ; il perd s'il est percuté par plus gros, avalé par un trou noir ou
 //  s'il dépasse la taille critique et explose.
 //
@@ -49,11 +49,18 @@ final class Simulation {
     private(set) var gameTime: Double = 0
     /// Identifiant de la planète du joueur (nil en contemplation ou après une défaite).
     private(set) var playerID: Int?
-    /// Point vers lequel le joueur dirige sa planète (doigt ou souris enfoncé).
-    private var steerTarget: Vec2?
+    /// Point visé pendant que le doigt (ou la souris) est appuyé, pour la ligne de visée.
+    private(set) var aimPoint: Vec2?
+    /// Direction donnée par le dernier lancer, suivie jusqu'à `launchUntil`.
+    private var launchDirection: Vec2?
+    private var launchUntil: Double = 0
     private var nextBlackHoleTime: Double = 0
     private var nextSpawnTime: Double = 0
 
+    /// Mode jeu : attraction d'un piège formé, multipliée jusqu'à (1 + trapPull) près de l'horizon
+    /// et qui revient à la normale à `trapReach` fois son diamètre.
+    static let trapPull = 8.0
+    static let trapReach = 5.0
     /// Constante de gravitation de base, multipliée par le réglage « Gravité ».
     static let baseG = 300.0
     /// Adoucissement de la gravité (points) pour éviter la singularité à distance nulle.
@@ -69,14 +76,17 @@ final class Simulation {
     static let blackHoleDensity = 4.0
     /// Nombre maximal d'animations d'impact simultanées.
     static let maxImpacts = 40
-    /// Vitesse maximale de la planète du joueur vers le doigt (points/s, pour la fenêtre de référence).
+    /// Vitesse donnée à la planète du joueur par un lancer (points/s), avant sa mobilité.
     static let playerSpeed = 260.0
-    /// Rapidité avec laquelle la planète du joueur obéit au doigt (1/s).
-    static let playerResponse = 4.0
-    /// Freinage de la planète du joueur quand le doigt est levé (1/s).
-    static let playerDrag = 0.9
+    /// Temps de réaction d'une planète : après un lancer, elle met environ ce temps (s) à
+    /// prendre sa nouvelle direction, puis elle continue tout droit.
+    static let playerTurnTime = 1.0
+    /// Rapidité avec laquelle la planète prend sa nouvelle direction pendant ce temps (1/s).
+    static let playerResponse = 3.0
     /// La planète du joueur ralentit en grossissant, mais garde au moins cette mobilité.
-    static let playerMinMobility = 0.35
+    static let playerMinMobility = 0.5
+    /// Relâcher le doigt sur sa propre planète (ou tout près) ne la lance pas.
+    static let aimDeadZone = 4.0
     /// En mode jeu, on gagne en devenant un soleil : 80 % de la taille critique.
     static let sunThreshold = 0.8
     /// Clé UserDefaults du meilleur temps pour devenir un soleil.
@@ -107,18 +117,37 @@ final class Simulation {
         needsReset = true
     }
 
-    /// Mode jeu : dirige la planète du joueur vers ce point (nil quand le doigt est levé).
-    func steer(to point: CGPoint?) {
-        steerTarget = point.map { Vec2($0) }
+    /// Mode jeu : point visé pendant que le doigt est appuyé (nil quand il est levé).
+    func aim(at point: CGPoint?) {
+        aimPoint = isGame && gameState == .playing ? point.map { Vec2($0) } : nil
+    }
+
+    /// Mode jeu : lance la planète du joueur vers ce point. Elle prend cette direction en
+    /// `playerTurnTime` environ, puis continue tout droit jusqu'au prochain lancer.
+    func launch(toward point: CGPoint) {
+        aimPoint = nil
+        guard isGame, gameState == .playing, let player else { return }
+        let toward = Vec2(point) - player.position
+        let distance = toward.length
+        guard distance > player.radius + Self.aimDeadZone else { return }
+        launchDirection = toward / distance
+        launchUntil = time + Self.playerTurnTime
     }
 
     func addBlackHole(at point: CGPoint) {
+        addBlackHole(at: Vec2(point), trap: false)
+    }
+
+    private func addBlackHole(at position: Vec2, trap: Bool) {
+        // Un piège doit vivre assez longtemps pour grandir puis rester un moment à pleine force.
+        let minimum = trap ? BlackHole.trapGrowTime + 3 : 0.5
         blackHoles.append(BlackHole(
             id: makeID(),
-            position: Vec2(point),
+            position: position,
             birth: time,
-            lifetime: max(0.5, settings.blackHoleLifetime),
-            size: settings.blackHoleSize
+            lifetime: max(minimum, settings.blackHoleLifetime),
+            size: settings.blackHoleSize,
+            isTrap: trap
         ))
     }
 
@@ -187,7 +216,8 @@ final class Simulation {
         impacts.removeAll()
         planets = (0..<max(0, settings.planetCount)).map { _ in randomPlanet() }
         playerID = nil
-        steerTarget = nil
+        aimPoint = nil
+        launchDirection = nil
         gameState = .playing
         gameTime = 0
         if isGame {
@@ -219,7 +249,8 @@ final class Simulation {
     private func endGame(_ state: GameState) {
         guard isGame, gameState == .playing else { return }
         gameState = state
-        steerTarget = nil
+        aimPoint = nil
+        launchDirection = nil
         if case .won(let duration) = state, bestTime.map({ duration < $0 }) ?? true {
             UserDefaults.standard.set(duration, forKey: Self.bestTimeKey)
         }
@@ -243,11 +274,12 @@ final class Simulation {
             nextSpawnTime = time + 0.5
         }
 
-        // Un trou noir piège apparaît de temps en temps, loin du joueur.
+        // Un trou noir piège apparaît de temps en temps, loin du joueur : minuscule, il grandit
+        // pendant 2 s (le temps de s'éloigner), puis attire très fort tout ce qui passe près.
         if blackHoles.isEmpty, time >= nextBlackHoleTime {
             let spot = randomPoint(awayFrom: player?.position, distance: Double(min(bounds.width, bounds.height)) / 3)
-            addBlackHole(at: spot.cgPoint)
-            nextBlackHoleTime = time + settings.blackHoleLifetime + Double.random(in: 6...12)
+            addBlackHole(at: spot, trap: true)
+            nextBlackHoleTime = time + (blackHoles.last?.lifetime ?? 0) + Double.random(in: 6...12)
         }
     }
 
@@ -323,29 +355,35 @@ final class Simulation {
             let intensity = hole.intensity(at: time)
             let mass = hole.size * hole.size * Self.blackHoleDensity * settings.blackHoleStrength * intensity
             let eps = hole.size / 2
+            // Piège formé du mode jeu : attraction bien plus forte à courte distance.
+            let reach = hole.isTrap && hole.isFormed(at: time) ? hole.size * hole.scale(at: time) * Self.trapReach : 0
             for i in 0..<n {
                 let d = hole.position - positions[i]
                 let r2 = d.lengthSquared + eps * eps
-                acceleration[i] += d * (Self.baseG * mass / (r2 * r2.squareRoot()))
+                var pull = Self.baseG * mass / (r2 * r2.squareRoot())
+                if reach > 0 {
+                    pull *= 1 + Self.trapPull * max(0, 1 - d.length / reach)
+                }
+                acceleration[i] += d * pull
             }
         }
 
-        // Mode jeu : la planète du joueur file vers le doigt et ralentit en arrivant dessus
-        // (sans tourner autour) ; doigt levé, elle est simplement freinée.
+        // Mode jeu : après un lancer, la planète du joueur prend peu à peu sa nouvelle direction
+        // (une planète a de l'inertie), puis elle va tout droit, soumise à la gravité comme les autres.
+        // Comme pour toutes les planètes, la vitesse est en points/s et la grosse planète avance
+        // moins vite à l'écran (mobilité) : le temps de réaction est le même quelle que soit sa taille.
         var playerIndex: Int?
         if let playerID, gameState == .playing {
             playerIndex = planets.firstIndex { $0.id == playerID }
         }
-        if let index = playerIndex {
-            if let target = steerTarget {
-                let toward = target - positions[index]
-                let distance = toward.length
-                let mobility = playerMobility(planets[index])
-                let speed = min(Self.playerSpeed * SimulationSettings.sizeScale(for: bounds), distance * 4)
-                let wanted = distance > 0.5 ? toward * (speed / distance / mobility) : .zero
+        if let index = playerIndex, let direction = launchDirection {
+            let wanted = direction * Self.playerSpeed
+            if time < launchUntil {
                 acceleration[index] += (wanted - planets[index].velocity) * Self.playerResponse
             } else {
-                acceleration[index] -= planets[index].velocity * Self.playerDrag
+                // Fin du virage : la planète part exactement dans la direction visée.
+                planets[index].velocity = wanted
+                launchDirection = nil
             }
         }
 

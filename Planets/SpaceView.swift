@@ -17,6 +17,7 @@ struct SpaceView: View {
                 simulation.update(date: timeline.date, size: size)
                 let settings = simulation.settings
                 drawPlanets(in: &context, settings: settings)
+                drawAim(in: &context)
                 drawImpacts(in: &context)
                 drawBlackHoles(in: &context)
             }
@@ -83,6 +84,26 @@ struct SpaceView: View {
                 context.stroke(line, with: .color(.red.opacity(0.6)), lineWidth: 1)
             }
         }
+    }
+
+    // MARK: - Visée (mode jeu)
+
+    /// Pendant que le doigt est appuyé : ligne pointillée de la planète du joueur vers le doigt.
+    private func drawAim(in context: inout GraphicsContext) {
+        guard let target = simulation.aimPoint, let player = simulation.player else { return }
+        let start = player.position
+        let toward = target - start
+        let distance = toward.length
+        let gap = player.radius + Simulation.aimDeadZone
+        guard distance > gap else { return }
+        var line = Path()
+        line.move(to: (start + toward * (gap / distance)).cgPoint)
+        line.addLine(to: target.cgPoint)
+        let color = Color(red: 0.4, green: 0.8, blue: 1)
+        context.stroke(line, with: .color(color.opacity(0.7)),
+                       style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [6, 6]))
+        context.fill(Path(ellipseIn: CGRect(x: target.x - 4, y: target.y - 4, width: 8, height: 8)),
+                     with: .color(color.opacity(0.7)))
     }
 
     // MARK: - Impacts
