@@ -49,10 +49,19 @@ final class Simulation {
     private(set) var gameTime: Double = 0
     /// Identifiant de la planète du joueur (nil en contemplation ou après une défaite).
     private(set) var playerID: Int?
+    /// Nombre de planètes absorbées par le joueur pendant la partie (pour la vibration).
+    private(set) var playerAbsorptions = 0
+    /// Masse de la dernière planète absorbée par rapport à celle du joueur (0 à 1).
+    private(set) var lastAbsorbedRatio = 0.0
+    /// Instant (temps de simulation) et lieu de la victoire ou de la défaite, pour les animations.
+    private(set) var gameEndTime: Double?
+    private(set) var gameEndPosition: Vec2?
     /// Point visé pendant que le doigt (ou la souris) est appuyé, pour la ligne de visée.
     private(set) var aimPoint: Vec2?
     /// Direction donnée par le dernier lancer, suivie jusqu'à `launchUntil`.
     private var launchDirection: Vec2?
+    /// Vitesse visée par le dernier lancer (points/s).
+    private var launchSpeed: Double = 0
     private var launchUntil: Double = 0
     private var nextBlackHoleTime: Double = 0
     private var nextSpawnTime: Double = 0
@@ -79,8 +88,10 @@ final class Simulation {
     static let blackHoleDensity = 4.0
     /// Nombre maximal d'animations d'impact simultanées.
     static let maxImpacts = 40
-    /// Vitesse donnée à la planète du joueur par un lancer (points/s), avant sa mobilité.
-    static let playerSpeed = 260.0
+    /// Vitesse donnée par un lancer à pleine puissance (points/s), avant la mobilité de la planète.
+    static let playerSpeed = 320.0
+    /// Longueur du trait de visée (en part du petit côté de la fenêtre) qui donne la pleine puissance.
+    static let fullPowerAim = 0.35
     /// Temps de réaction d'une planète : après un lancer, elle met environ ce temps (s) à
     /// prendre sa nouvelle direction, puis elle continue tout droit.
     static let playerTurnTime = 1.0
@@ -129,12 +140,23 @@ final class Simulation {
     /// `playerTurnTime` environ, puis continue tout droit jusqu'au prochain lancer.
     func launch(toward point: CGPoint) {
         aimPoint = nil
-        guard isGame, gameState == .playing, let player else { return }
-        let toward = Vec2(point) - player.position
-        let distance = toward.length
-        guard distance > player.radius + Self.aimDeadZone else { return }
-        launchDirection = toward / distance
+        guard isGame, gameState == .playing, let player, let shot = aim(from: player, to: Vec2(point)) else { return }
+        launchDirection = shot.direction
+        launchSpeed = Self.playerSpeed * shot.power
         launchUntil = time + Self.playerTurnTime
+    }
+
+    /// Visée comme une fronde : la direction va de la planète vers le doigt, et la puissance
+    /// (0 à 1) grandit avec la longueur du trait, au-delà du bord de la planète. Nil si le doigt
+    /// est sur la planète elle-même.
+    func aim(from player: Planet, to point: Vec2) -> (direction: Vec2, power: Double, start: Double, end: Double)? {
+        let toward = point - player.position
+        let distance = toward.length
+        let start = player.radius + Self.aimDeadZone
+        guard distance > start else { return nil }
+        let full = Self.fullPowerAim * Double(min(bounds.width, bounds.height))
+        let length = min(distance - start, full)
+        return (toward / distance, length / max(1, full), start, start + length)
     }
 
     func addBlackHole(at point: CGPoint) {
@@ -223,6 +245,10 @@ final class Simulation {
         launchDirection = nil
         gameState = .playing
         gameTime = 0
+        playerAbsorptions = 0
+        lastAbsorbedRatio = 0
+        gameEndTime = nil
+        gameEndPosition = nil
         if isGame {
             startGame()
         }
@@ -249,9 +275,11 @@ final class Simulation {
         nextSpawnTime = time
     }
 
-    private func endGame(_ state: GameState) {
+    private func endGame(_ state: GameState, at position: Vec2) {
         guard isGame, gameState == .playing else { return }
         gameState = state
+        gameEndTime = time
+        gameEndPosition = position
         aimPoint = nil
         launchDirection = nil
         if case .won(let duration) = state, bestTime.map({ duration < $0 }) ?? true {
@@ -266,7 +294,7 @@ final class Simulation {
         if gameState == .playing {
             gameTime += h
             if let player, player.size >= settings.criticalSize * Self.sunThreshold {
-                endGame(.won(gameTime))
+                endGame(.won(gameTime), at: player.position)
             }
         }
 
@@ -303,6 +331,18 @@ final class Simulation {
         planet.velocity = inward / distance * max(20, settings.initialSpeed) * Double.random(in: 0.5...1)
         return planet
     }
+
+    /// Défaite : décalage de l'espace (planètes et fond étoilé), qui tremble pendant une
+    /// demi-seconde, de moins en moins fort.
+    func defeatShake() -> CGSize {
+        guard case .lost = gameState, let end = gameEndTime else { return .zero }
+        let t = time - end
+        guard t >= 0, t < Self.shakeDuration else { return .zero }
+        let amplitude = 9 * (1 - t / Self.shakeDuration)
+        return CGSize(width: amplitude * sin(t * 71), height: amplitude * cos(t * 53))
+    }
+
+    private static let shakeDuration = 0.5
 
     /// Point au hasard dans la fenêtre, si possible à au moins `distance` de `origin`.
     private func randomPoint(awayFrom origin: Vec2?, distance: Double) -> Vec2 {
@@ -380,7 +420,7 @@ final class Simulation {
             playerIndex = planets.firstIndex { $0.id == playerID }
         }
         if let index = playerIndex, let direction = launchDirection {
-            let wanted = direction * Self.playerSpeed
+            let wanted = direction * launchSpeed
             if time < launchUntil {
                 acceleration[index] += (wanted - planets[index].velocity) * Self.playerResponse
             } else {
@@ -464,7 +504,10 @@ final class Simulation {
         planets[small].alive = false
         if b.id == playerID {
             playerID = nil
-            endGame(.lost("Percuté par une planète plus grosse"))
+            endGame(.lost("Percuté par une planète plus grosse"), at: b.position)
+        } else if a.id == playerID, gameState == .playing {
+            playerAbsorptions += 1
+            lastAbsorbedRatio = b.mass / a.mass
         }
 
         // Seules les grosses planètes (40 % de la taille critique et plus) réagissent au choc.
@@ -492,7 +535,7 @@ final class Simulation {
                     blackHoles[h].swallowedMass += planets[i].mass
                     if planets[i].id == playerID {
                         playerID = nil
-                        endGame(.lost("Avalé par un trou noir"))
+                        endGame(.lost("Avalé par un trou noir"), at: hole.position)
                     }
                 }
             }
@@ -548,7 +591,7 @@ final class Simulation {
             planets[i].alive = false
             if planets[i].id == playerID {
                 playerID = nil
-                endGame(.lost("Trop gros : tu as dépassé la taille critique et explosé"))
+                endGame(.lost("Trop gros : tu as dépassé la taille critique et explosé"), at: planets[i].position)
             }
             fragments += makeFragments(of: planets[i], existing: planets.count + fragments.count)
         }

@@ -36,8 +36,10 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
 
 Le bouton 🎮 (en haut à droite) passe du mode contemplation au mode jeu, et ✨ revient à la contemplation.
 
-- Tu lances ta planète (entourée de bleu) : appuie avec le doigt (ou la souris), vise grâce à la ligne
-  pointillée, puis relâche. Comme une vraie planète, elle met environ une seconde à prendre cette
+- Tu lances ta planète (entourée de bleu) comme avec une fronde : appuie avec le doigt (ou la souris),
+  vise grâce à la ligne pointillée, puis relâche. Plus le trait est long, plus le lancer est rapide
+  (bleu : petit coup, orange : pleine puissance) ; un trait très court permet de freiner.
+  Comme une vraie planète, elle met environ une seconde à prendre cette
   direction, puis elle continue tout droit (la gravité la dévie toujours) jusqu'au lancer suivant.
   Elle devient plus lente en grossissant, mais reste pilotable.
 - Absorbe les planètes plus petites pour grossir ; fuis celles entourées de rouge, plus grosses que toi.
@@ -48,6 +50,9 @@ Le bouton 🎮 (en haut à droite) passe du mode contemplation au mode jeu, et �
 - Tu perds si une planète plus grosse te percute, si un trou noir t'avale,
   ou si tu dépasses la taille critique d'un coup et explose.
 - De nouvelles petites planètes arrivent par les bords quand il en reste peu.
+- Sur iPhone, chaque planète absorbée fait vibrer l'appareil (plus fort si elle était grosse).
+- Victoire : onde dorée, vibration et jingle. Défaite : éclair rouge, l'espace tremble, vibration et
+  jingle. Jingles et vibrations se désactivent dans les préférences (section « Jeu »).
 
 ## Préférences (bouton ⚙︎, ou ⌘, sur Mac)
 

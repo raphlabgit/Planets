@@ -25,13 +25,19 @@ struct ContentView: View {
         ZStack {
             Color.black
             if showBackground {
-                Color.clear
-                    .overlay {
-                        Image("Space")
-                            .resizable()
-                            .scaledToFill()
-                    }
-                    .clipped()
+                // En jeu, le fond tremble avec les planètes lors d'une défaite.
+                TimelineView(.animation(minimumInterval: nil, paused: !gameMode)) { _ in
+                    Color.clear
+                        .overlay {
+                            // Légèrement agrandi pour que la secousse ne découvre pas les bords.
+                            Image("Space")
+                                .resizable()
+                                .scaledToFill()
+                                .scaleEffect(gameMode ? 1.04 : 1)
+                                .offset(simulation.defeatShake())
+                        }
+                        .clipped()
+                }
             }
             SpaceView(simulation: simulation)
                 .contentShape(Rectangle())
@@ -74,6 +80,7 @@ struct ContentView: View {
                 GameOverCard(simulation: simulation) {
                     gameMode = false
                 }
+                GameFeedback(simulation: simulation)
             }
         }
         .sheet(isPresented: $showPreferences) {
@@ -164,18 +171,25 @@ private struct GameOverCard: View {
     let onContemplate: () -> Void
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.25)) { _ in
-            switch simulation.gameState {
-            case .playing:
-                Color.clear.allowsHitTesting(false)
-            case .won(let duration):
-                card(title: "Tu es devenu un soleil !",
-                     message: "En \(formatDuration(duration))" + bestTimeText,
-                     symbol: "sun.max.fill", tint: .orange)
-            case .lost(let reason):
-                card(title: "Perdu", message: reason + bestTimeText,
-                     symbol: "burst.fill", tint: .red)
+        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+            let state = simulation.gameState
+            ZStack {
+                switch state {
+                case .playing:
+                    Color.clear.allowsHitTesting(false)
+                case .won(let duration):
+                    card(title: "Tu es devenu un soleil !",
+                         message: "En \(formatDuration(duration))" + bestTimeText,
+                         symbol: "sun.max.fill", tint: .orange)
+                case .lost(let reason):
+                    card(title: "Perdu", message: reason + bestTimeText,
+                         symbol: "burst.fill", tint: .red)
+                }
             }
+            // La carte arrive en rebondissant, juste après l'onde de victoire ou l'éclair de défaite.
+            // Elle disparaît vite quand on rejoue.
+            .animation(state == .playing ? .easeOut(duration: 0.2) : .spring(duration: 0.55, bounce: 0.4).delay(0.35),
+                       value: state)
         }
     }
 
@@ -188,6 +202,7 @@ private struct GameOverCard: View {
             Image(systemName: symbol)
                 .font(.system(size: 40))
                 .foregroundStyle(tint)
+                .symbolEffect(.pulse)
             Text(title)
                 .font(.title2.bold())
             Text(message)
@@ -204,6 +219,66 @@ private struct GameOverCard: View {
         .padding(24)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
         .padding(32)
+        .transition(.scale(scale: 0.5).combined(with: .opacity))
+    }
+}
+
+/// Mode jeu : vibrations (à chaque planète absorbée, à la victoire et à la défaite) et jingles.
+/// L'état de la partie est relu 20 fois par seconde, sans redessiner l'espace.
+private struct GameFeedback: View {
+    let simulation: Simulation
+    @AppStorage(PrefKey.gameSounds) private var sounds = SimulationSettings.defaults.gameSounds
+    @AppStorage(PrefKey.gameHaptics) private var haptics = SimulationSettings.defaults.gameHaptics
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.05)) { _ in
+            FeedbackTrigger(
+                absorptions: simulation.playerAbsorptions,
+                absorbedRatio: simulation.lastAbsorbedRatio,
+                state: simulation.gameState,
+                sounds: sounds,
+                haptics: haptics
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        // Charge les jingles dès l'entrée en jeu, pour qu'ils partent sans délai.
+        .onAppear { _ = GameSounds.shared }
+    }
+}
+
+private struct FeedbackTrigger: View {
+    let absorptions: Int
+    let absorbedRatio: Double
+    let state: GameState
+    let sounds: Bool
+    let haptics: Bool
+
+    var body: some View {
+        Color.clear
+            .sensoryFeedback(trigger: absorptions) { old, new in
+                // Pas de choc au moment de la victoire ou de la défaite : leur propre vibration suffit.
+                guard haptics, new > old, state == .playing else { return nil }
+                // Plus la planète avalée est grosse par rapport à la nôtre, plus le choc est fort.
+                let weight: SensoryFeedback.Weight = absorbedRatio > 0.3 ? .heavy : absorbedRatio > 0.08 ? .medium : .light
+                return .impact(weight: weight, intensity: min(1, 0.5 + absorbedRatio * 1.5))
+            }
+            .sensoryFeedback(trigger: state) { _, new in
+                guard haptics else { return nil }
+                switch new {
+                case .playing: return nil
+                case .won: return .success
+                case .lost: return .error
+                }
+            }
+            .onChange(of: state) { _, new in
+                guard sounds else { return }
+                switch new {
+                case .playing: break
+                case .won: GameSounds.shared.playWin()
+                case .lost: GameSounds.shared.playLose()
+                }
+            }
     }
 }
 

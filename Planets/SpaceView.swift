@@ -16,10 +16,13 @@ struct SpaceView: View {
             Canvas { context, size in
                 simulation.update(date: timeline.date, size: size)
                 let settings = simulation.settings
+                let shake = simulation.defeatShake()
+                context.translateBy(x: shake.width, y: shake.height)
                 drawPlanets(in: &context, settings: settings)
                 drawAim(in: &context)
                 drawImpacts(in: &context)
                 drawBlackHoles(in: &context)
+                drawGameEnd(in: &context, size: size)
             }
         }
     }
@@ -89,21 +92,83 @@ struct SpaceView: View {
     // MARK: - Visée (mode jeu)
 
     /// Pendant que le doigt est appuyé : ligne pointillée de la planète du joueur vers le doigt.
+    /// Sa longueur donne la puissance du lancer (plafonnée), et sa couleur passe du bleu
+    /// (petit coup) à l'orange (pleine puissance).
     private func drawAim(in context: inout GraphicsContext) {
-        guard let target = simulation.aimPoint, let player = simulation.player else { return }
-        let start = player.position
-        let toward = target - start
-        let distance = toward.length
-        let gap = player.radius + Simulation.aimDeadZone
-        guard distance > gap else { return }
+        guard let target = simulation.aimPoint, let player = simulation.player,
+              let aim = simulation.aim(from: player, to: target) else { return }
+        let from = player.position + aim.direction * aim.start
+        let to = player.position + aim.direction * aim.end
         var line = Path()
-        line.move(to: (start + toward * (gap / distance)).cgPoint)
-        line.addLine(to: target.cgPoint)
-        let color = Color(red: 0.4, green: 0.8, blue: 1)
-        context.stroke(line, with: .color(color.opacity(0.7)),
-                       style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [6, 6]))
-        context.fill(Path(ellipseIn: CGRect(x: target.x - 4, y: target.y - 4, width: 8, height: 8)),
-                     with: .color(color.opacity(0.7)))
+        line.move(to: from.cgPoint)
+        line.addLine(to: to.cgPoint)
+        let p = aim.power
+        let color = Color(red: 0.4 + 0.6 * p, green: 0.8 - 0.25 * p, blue: 1 - 0.8 * p)
+        context.stroke(line, with: .color(color.opacity(0.8)),
+                       style: StrokeStyle(lineWidth: 1.5 + 1.5 * p, lineCap: .round, dash: [6, 6]))
+        let dot = 4 + 2 * p
+        context.fill(Path(ellipseIn: CGRect(x: to.x - dot, y: to.y - dot, width: 2 * dot, height: 2 * dot)),
+                     with: .color(color.opacity(0.9)))
+    }
+
+    // MARK: - Fin de partie (mode jeu)
+
+    private static let winEffectDuration = 1.6
+    private static let defeatFlashDuration = 0.8
+
+    /// Victoire : éclat doré sur tout l'écran et trois ondes qui partent du nouveau soleil.
+    /// Défaite : éclair rouge à l'endroit où la planète du joueur a disparu.
+    private func drawGameEnd(in context: inout GraphicsContext, size: CGSize) {
+        guard let end = simulation.gameEndTime else { return }
+        let t = simulation.time - end
+        guard t >= 0 else { return }
+        var layer = context
+        layer.blendMode = .plusLighter
+
+        switch simulation.gameState {
+        case .playing:
+            return
+        case .won:
+            guard t < Self.winEffectDuration,
+                  let center = (simulation.player?.position ?? simulation.gameEndPosition)?.cgPoint else { return }
+            let reach = Double(max(size.width, size.height))
+            if t < 0.6 {
+                let glow = 1 - t / 0.6
+                layer.fill(Path(CGRect(origin: .zero, size: size)), with: .radialGradient(
+                    Gradient(colors: [
+                        Color(red: 1, green: 0.85, blue: 0.4).opacity(0.55 * glow),
+                        Color(red: 1, green: 0.6, blue: 0.1).opacity(0.15 * glow),
+                        .clear,
+                    ]),
+                    center: center, startRadius: 0, endRadius: reach * 0.8
+                ))
+            }
+            for wave in 0..<3 {
+                let local = (t - Double(wave) * 0.25) / 1.1
+                guard local > 0, local < 1 else { continue }
+                let radius = 20 + reach * 0.7 * local
+                layer.stroke(
+                    Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius)),
+                    with: .color(Color(red: 1, green: 0.8, blue: 0.35).opacity(0.8 * (1 - local))),
+                    lineWidth: 6 * (1 - local) + 1
+                )
+            }
+        case .lost:
+            guard t < Self.defeatFlashDuration, let center = simulation.gameEndPosition?.cgPoint else { return }
+            let local = t / Self.defeatFlashDuration
+            let radius = 15 + 140 * local
+            layer.fill(
+                Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius)),
+                with: .radialGradient(
+                    Gradient(colors: [
+                        Color.white.opacity(0.9 * (1 - local)),
+                        Color(red: 1, green: 0.25, blue: 0.1).opacity(0.6 * (1 - local)),
+                        .clear,
+                    ]),
+                    center: center, startRadius: 0, endRadius: radius
+                )
+            )
+        }
     }
 
     // MARK: - Impacts

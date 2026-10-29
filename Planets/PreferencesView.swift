@@ -29,6 +29,8 @@ struct PreferencesView: View {
     @AppStorage(PrefKey.colorBySize) private var colorBySize = SimulationSettings.defaults.colorBySize
     @AppStorage(PrefKey.showVectors) private var showVectors = SimulationSettings.defaults.showVectors
     @AppStorage(PrefKey.showPlanetCount) private var showPlanetCount = SimulationSettings.defaults.showPlanetCount
+    @AppStorage(PrefKey.gameSounds) private var gameSounds = SimulationSettings.defaults.gameSounds
+    @AppStorage(PrefKey.gameHaptics) private var gameHaptics = SimulationSettings.defaults.gameHaptics
 
     var body: some View {
         NavigationStack {
@@ -87,6 +89,13 @@ struct PreferencesView: View {
                     Toggle("Couleur selon la taille", isOn: $colorBySize)
                     Toggle("Vecteurs vitesse", isOn: $showVectors)
                     Toggle("Nombre de planètes à l'écran", isOn: $showPlanetCount)
+                }
+
+                Section("Jeu « Deviens un soleil »") {
+                    Toggle("Jingles de victoire et de défaite", isOn: $gameSounds)
+                    #if os(iOS)
+                    Toggle("Vibrations", isOn: $gameHaptics)
+                    #endif
                 }
 
                 Section {

@@ -44,12 +44,14 @@ enum PrefKey {
     static let showVectors = "showVectors"
     static let showPlanetCount = "showPlanetCount"
     static let gameMode = "gameMode"
+    static let gameSounds = "gameSounds"
+    static let gameHaptics = "gameHaptics"
 
     /// Réglages remis à zéro par « Rétablir les valeurs par défaut » (le mode jeu n'en fait pas partie).
     static let all = [
         planetCount, minSize, maxSize, initialSpeed, gravity, criticalSize, explosionSpeed, edgeMode,
         blackHoleLifetime, blackHoleSize, blackHoleStrength, showBackground, colorBySize, showVectors,
-        showPlanetCount,
+        showPlanetCount, gameSounds, gameHaptics,
     ]
 }
 
@@ -71,6 +73,10 @@ struct SimulationSettings {
     var showPlanetCount = true
     /// Mode jeu « Deviens un soleil » (sinon mode contemplation).
     var gameMode = false
+    /// Mode jeu : jingles de victoire et de défaite.
+    var gameSounds = true
+    /// Mode jeu : vibrations (iPhone) à chaque absorption, à la victoire et à la défaite.
+    var gameHaptics = true
 
     static let defaults = SimulationSettings()
 
@@ -114,6 +120,8 @@ struct SimulationSettings {
             PrefKey.showVectors: d.showVectors,
             PrefKey.showPlanetCount: d.showPlanetCount,
             PrefKey.gameMode: d.gameMode,
+            PrefKey.gameSounds: d.gameSounds,
+            PrefKey.gameHaptics: d.gameHaptics,
         ])
     }
 
@@ -145,6 +153,8 @@ struct SimulationSettings {
         s.showVectors = bool(PrefKey.showVectors, s.showVectors)
         s.showPlanetCount = bool(PrefKey.showPlanetCount, s.showPlanetCount)
         s.gameMode = bool(PrefKey.gameMode, s.gameMode)
+        s.gameSounds = bool(PrefKey.gameSounds, s.gameSounds)
+        s.gameHaptics = bool(PrefKey.gameHaptics, s.gameHaptics)
         return s
     }
 }
