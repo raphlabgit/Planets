@@ -23,6 +23,8 @@ import Foundation
 final class Simulation {
     private(set) var planets: [Planet] = []
     private(set) var blackHoles: [BlackHole] = []
+    /// Chocs récents sur les grosses planètes, pour l'animation d'impact.
+    private(set) var impacts: [Impact] = []
     /// Temps de simulation en secondes (s'arrête pendant la pause).
     private(set) var time: Double = 0
     private(set) var bounds = CGSize.zero
@@ -46,6 +48,8 @@ final class Simulation {
     static let fixedStep = 1.0 / 120.0
     /// Masse d'un trou noir par point² de surface d'horizon, avant le réglage « Force ».
     static let blackHoleDensity = 4.0
+    /// Nombre maximal d'animations d'impact simultanées.
+    static let maxImpacts = 40
 
     // MARK: - Commandes
 
@@ -122,6 +126,7 @@ final class Simulation {
         time = 0
         emptySince = nil
         blackHoles.removeAll()
+        impacts.removeAll()
         planets = (0..<max(0, settings.planetCount)).map { _ in randomPlanet() }
     }
 
@@ -133,6 +138,7 @@ final class Simulation {
         explodeOversizedPlanets()
         planets.removeAll { !$0.alive }
         releaseExpiredBlackHoles()
+        impacts.removeAll { $0.progress(at: time) >= 1 }
         keepAlive()
     }
 
@@ -234,6 +240,17 @@ final class Simulation {
         planets[big].position = (a.position * a.mass + b.position * b.mass) / total
         planets[big].size = total.squareRoot()
         planets[small].alive = false
+
+        // Seules les grosses planètes (40 % de la taille critique et plus) réagissent au choc.
+        if planets[big].size >= settings.criticalSize * 0.4, impacts.count < Self.maxImpacts {
+            let toward = b.position - a.position
+            let distance = toward.length
+            impacts.append(Impact(
+                planetID: a.id,
+                direction: distance > 0 ? toward / distance : Vec2(angle: Double.random(in: 0..<(2 * .pi)), length: 1),
+                birth: time
+            ))
+        }
     }
 
     // MARK: - Trous noirs

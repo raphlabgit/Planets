@@ -18,6 +18,7 @@ struct SpaceView: View {
                 simulation.update(date: timeline.date, size: size)
                 let settings = simulation.settings
                 drawPlanets(in: &context, settings: settings)
+                drawImpacts(in: &context)
                 drawBlackHoles(in: &context)
             }
         }
@@ -63,6 +64,48 @@ struct SpaceView: View {
                 line.addLine(to: (planet.position + speed * 0.5).cgPoint)
                 context.stroke(line, with: .color(.red.opacity(0.6)), lineWidth: 1)
             }
+        }
+    }
+
+    // MARK: - Impacts
+
+    /// Choc sur une grosse planète : éclair au point d'impact et onde de choc qui s'élargit,
+    /// le tout en 0,35 s. Deux remplissages par impact, seulement pendant l'animation.
+    private func drawImpacts(in context: inout GraphicsContext) {
+        guard !simulation.impacts.isEmpty else { return }
+        let planetsByID = Dictionary(uniqueKeysWithValues: simulation.planets.map { ($0.id, $0) })
+        var layer = context
+        layer.blendMode = .plusLighter
+
+        for impact in simulation.impacts {
+            guard let planet = planetsByID[impact.planetID] else { continue }
+            let t = min(1, max(0, impact.progress(at: simulation.time)))
+            let fade = 1 - t
+            let r = planet.radius
+            let center = planet.position.cgPoint
+
+            // Onde de choc autour de la planète.
+            let ring = r * (1 + 0.5 * t)
+            layer.stroke(
+                Path(ellipseIn: CGRect(x: center.x - ring, y: center.y - ring, width: 2 * ring, height: 2 * ring)),
+                with: .color(Color(red: 1, green: 0.85, blue: 0.6).opacity(0.6 * fade)),
+                lineWidth: max(1, r * 0.12 * fade)
+            )
+
+            // Éclair au point d'impact.
+            let hit = (planet.position + impact.direction * r).cgPoint
+            let flash = r * (0.3 + 0.7 * t)
+            layer.fill(
+                Path(ellipseIn: CGRect(x: hit.x - flash, y: hit.y - flash, width: 2 * flash, height: 2 * flash)),
+                with: .radialGradient(
+                    Gradient(colors: [
+                        Color.white.opacity(fade),
+                        Color(red: 1, green: 0.7, blue: 0.3).opacity(0.6 * fade),
+                        Color(red: 1, green: 0.4, blue: 0).opacity(0),
+                    ]),
+                    center: hit, startRadius: 0, endRadius: flash
+                )
+            )
         }
     }
 

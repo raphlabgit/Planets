@@ -91,3 +91,17 @@ struct BlackHole: Identifiable {
         return -(age * 1.5 + age * age * 0.12)
     }
 }
+
+/// Choc reçu par une grosse planète : petite animation très brève (éclair au point
+/// d'impact et onde de choc autour de la planète).
+struct Impact {
+    let planetID: Int
+    /// Direction du point d'impact depuis le centre de la planète.
+    let direction: Vec2
+    let birth: Double
+
+    static let duration = 0.35
+
+    /// 0 → 1 pendant l'animation.
+    func progress(at time: Double) -> Double { (time - birth) / Self.duration }
+}
