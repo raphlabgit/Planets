@@ -25,7 +25,7 @@ final class Simulation {
     private(set) var blackHoles: [BlackHole] = []
     /// Chocs récents sur les grosses planètes, pour l'animation d'impact.
     private(set) var impacts: [Impact] = []
-    /// Temps de simulation en secondes (s'arrête pendant la pause).
+    /// Temps de simulation en secondes.
     private(set) var time: Double = 0
     private(set) var bounds = CGSize.zero
     private(set) var settings = SimulationSettings.load()
@@ -56,11 +56,6 @@ final class Simulation {
     /// Recrée les planètes de départ à la prochaine image (avec la taille de fenêtre actuelle).
     func requestReset() {
         needsReset = true
-    }
-
-    /// À appeler en sortie de pause pour ne pas rattraper le temps écoulé.
-    func resetClock() {
-        lastDate = nil
     }
 
     func addBlackHole(at point: CGPoint) {

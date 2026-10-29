@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  Planets
 //
-//  Fenêtre principale : fond étoilé, simulation, et boutons pause / préférences.
+//  Fenêtre principale : fond étoilé, simulation, compteur de planètes et bouton des préférences.
 //  Un clic (ou un toucher) dans l'espace fait apparaître un trou noir.
 //
 
@@ -10,9 +10,9 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var simulation = Simulation()
-    @State private var paused = false
     @State private var showPreferences = false
     @AppStorage(PrefKey.showBackground) private var showBackground = SimulationSettings.defaults.showBackground
+    @AppStorage(PrefKey.showPlanetCount) private var showPlanetCount = SimulationSettings.defaults.showPlanetCount
 
     var body: some View {
         ZStack {
@@ -26,7 +26,7 @@ struct ContentView: View {
                     }
                     .clipped()
             }
-            SpaceView(simulation: simulation, paused: paused)
+            SpaceView(simulation: simulation)
                 .contentShape(Rectangle())
                 .onTapGesture { location in
                     simulation.addBlackHole(at: location)
@@ -55,15 +55,33 @@ struct ContentView: View {
 
     private var controls: some View {
         HStack(spacing: 10) {
-            ControlButton(systemImage: paused ? "play.fill" : "pause.fill",
-                          label: paused ? "Reprendre" : "Pause") {
-                paused.toggle()
-                if !paused { simulation.resetClock() }
+            if showPlanetCount {
+                PlanetCounter(simulation: simulation)
             }
             ControlButton(systemImage: "gearshape.fill", label: "Préférences") {
                 showPreferences = true
             }
         }
+    }
+}
+
+/// Nombre de planètes, rafraîchi 4 fois par seconde seulement : un simple texte, sans
+/// redessiner l'espace, donc pratiquement gratuit.
+private struct PlanetCounter: View {
+    let simulation: Simulation
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+            let count = simulation.planets.count
+            Text("\(count) planète\(count > 1 ? "s" : "")")
+                .font(.system(size: 14, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .accessibilityLabel("Nombre de planètes")
     }
 }
 

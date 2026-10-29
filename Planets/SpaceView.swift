@@ -10,10 +10,9 @@ import SwiftUI
 
 struct SpaceView: View {
     let simulation: Simulation
-    let paused: Bool
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: nil, paused: paused)) { timeline in
+        TimelineView(.animation) { timeline in
             Canvas { context, size in
                 simulation.update(date: timeline.date, size: size)
                 let settings = simulation.settings

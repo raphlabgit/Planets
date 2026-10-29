@@ -51,7 +51,8 @@ mesure 720 px, et sont adaptées en proportion à la fenêtre réelle : environ 
 | Taille / force du trou noir | 60 px / × 1 |
 | Fond étoilé, couleur selon la taille, vecteurs vitesse | oui / oui / non |
 
-Bouton **Réinitialiser l'animation** dans les préférences (et ⌘R sur Mac). Le bouton ⏸ met la simulation en pause.
+Bouton **Réinitialiser l'animation** dans les préférences (et ⌘R sur Mac). Le nombre de planètes s'affiche
+en haut à droite, à côté du bouton ⚙︎ (masquable dans les préférences).
 
 ## Organisation du code
 

@@ -28,6 +28,7 @@ struct PreferencesView: View {
     @AppStorage(PrefKey.showBackground) private var showBackground = SimulationSettings.defaults.showBackground
     @AppStorage(PrefKey.colorBySize) private var colorBySize = SimulationSettings.defaults.colorBySize
     @AppStorage(PrefKey.showVectors) private var showVectors = SimulationSettings.defaults.showVectors
+    @AppStorage(PrefKey.showPlanetCount) private var showPlanetCount = SimulationSettings.defaults.showPlanetCount
 
     var body: some View {
         NavigationStack {
@@ -85,6 +86,7 @@ struct PreferencesView: View {
                     Toggle("Fond étoilé", isOn: $showBackground)
                     Toggle("Couleur selon la taille", isOn: $colorBySize)
                     Toggle("Vecteurs vitesse", isOn: $showVectors)
+                    Toggle("Nombre de planètes à l'écran", isOn: $showPlanetCount)
                 }
 
                 Section {

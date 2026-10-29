@@ -42,10 +42,12 @@ enum PrefKey {
     static let showBackground = "showBackground"
     static let colorBySize = "colorBySize"
     static let showVectors = "showVectors"
+    static let showPlanetCount = "showPlanetCount"
 
     static let all = [
         planetCount, minSize, maxSize, initialSpeed, gravity, criticalSize, explosionSpeed, edgeMode,
         blackHoleLifetime, blackHoleSize, blackHoleStrength, showBackground, colorBySize, showVectors,
+        showPlanetCount,
     ]
 }
 
@@ -64,6 +66,7 @@ struct SimulationSettings {
     var showBackground = true
     var colorBySize = true
     var showVectors = false
+    var showPlanetCount = true
 
     static let defaults = SimulationSettings()
 
@@ -105,6 +108,7 @@ struct SimulationSettings {
             PrefKey.showBackground: d.showBackground,
             PrefKey.colorBySize: d.colorBySize,
             PrefKey.showVectors: d.showVectors,
+            PrefKey.showPlanetCount: d.showPlanetCount,
         ])
     }
 
@@ -134,6 +138,7 @@ struct SimulationSettings {
         s.showBackground = bool(PrefKey.showBackground, s.showBackground)
         s.colorBySize = bool(PrefKey.colorBySize, s.colorBySize)
         s.showVectors = bool(PrefKey.showVectors, s.showVectors)
+        s.showPlanetCount = bool(PrefKey.showPlanetCount, s.showPlanetCount)
         return s
     }
 }
