@@ -8,6 +8,7 @@
 //  (sauf les réglages de lancement, appliqués à la prochaine réinitialisation).
 //
 
+import CoreGraphics
 import Foundation
 
 enum EdgeMode: String, CaseIterable, Identifiable {
@@ -49,13 +50,13 @@ enum PrefKey {
 }
 
 struct SimulationSettings {
-    var planetCount = 100
-    var minSize = 4.0
+    var planetCount = 80
+    var minSize = 2.0
     var maxSize = 10.0
-    var initialSpeed = 40.0
-    var gravity = 1.0
-    var criticalSize = 40.0
-    var explosionSpeed = 360.0
+    var initialSpeed = 80.0
+    var gravity = 3.0
+    var criticalSize = 80.0
+    var explosionSpeed = 400.0
     var edgeMode = EdgeMode.wrap
     var blackHoleLifetime = 10.0
     var blackHoleSize = 60.0
@@ -65,6 +66,27 @@ struct SimulationSettings {
     var showVectors = false
 
     static let defaults = SimulationSettings()
+
+    /// Les tailles des préférences sont données pour une fenêtre de référence dont le petit côté
+    /// mesure 720 points (une fenêtre Mac ou un iPad). Sur un écran plus petit, comme l'iPhone,
+    /// tout est réduit dans la même proportion : planètes, taille critique et trous noirs.
+    static let referenceSide = 720.0
+
+    /// Facteur d'échelle des tailles pour une fenêtre donnée (borné entre 0,4 et 2).
+    static func sizeScale(for size: CGSize) -> Double {
+        min(2, max(0.4, Double(min(size.width, size.height)) / referenceSide))
+    }
+
+    /// Les mêmes réglages, avec les tailles adaptées à la fenêtre.
+    func scaled(for size: CGSize) -> SimulationSettings {
+        let k = Self.sizeScale(for: size)
+        var s = self
+        s.minSize *= k
+        s.maxSize *= k
+        s.criticalSize *= k
+        s.blackHoleSize *= k
+        return s
+    }
 
     static func registerDefaults(in store: UserDefaults = .standard) {
         let d = defaults

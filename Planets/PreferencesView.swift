@@ -33,7 +33,7 @@ struct PreferencesView: View {
         NavigationStack {
             Form {
                 Section {
-                    SliderRow(title: "Nombre de planètes", value: planetCountBinding, range: 2...500, step: 1) {
+                    SliderRow(title: "Nombre de planètes", value: planetCountBinding, range: 2...100, step: 1) {
                         "\(Int($0))"
                     }
                     SliderRow(title: "Taille minimale", value: $minSize, range: 2...30, step: 1) { "\(Int($0)) px" }
@@ -50,7 +50,7 @@ struct PreferencesView: View {
                 } header: {
                     Text("Lancement")
                 } footer: {
-                    Text("Ces réglages s'appliquent à la prochaine réinitialisation.")
+                    Text("Ces réglages s'appliquent à la prochaine réinitialisation. Les tailles sont données pour une fenêtre de 720 px de côté et s'adaptent à la taille réelle de l'écran (plus petites sur iPhone).")
                 }
 
                 Section("Physique") {
@@ -60,7 +60,7 @@ struct PreferencesView: View {
                     SliderRow(title: "Taille critique avant explosion", value: $criticalSize, range: 15...150, step: 1) {
                         "\(Int($0)) px"
                     }
-                    SliderRow(title: "Puissance des explosions", value: $explosionSpeed, range: 50...1000, step: 10) {
+                    SliderRow(title: "Puissance des explosions", value: $explosionSpeed, range: 50...500, step: 10) {
                         "\(Int($0)) px/s"
                     }
                     Picker("Bords de la fenêtre", selection: $edgeMode) {

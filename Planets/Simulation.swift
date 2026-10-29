@@ -37,9 +37,9 @@ final class Simulation {
     static let baseG = 300.0
     /// Adoucissement de la gravité (points) pour éviter la singularité à distance nulle.
     static let softening = 6.0
-    static let maxSpeed = 1500.0
+    static let maxSpeed = 500.0
     /// Limite de sécurité pour éviter les réactions en chaîne d'explosions.
-    static let maxPlanets = 800
+    static let maxPlanets = 100
     /// Durée pendant laquelle les fragments d'une explosion ne fusionnent pas.
     static let fragmentImmunity = 0.8
     /// Pas d'intégration fixe : la physique reste stable quelle que soit la fréquence d'affichage.
@@ -73,8 +73,11 @@ final class Simulation {
 
     /// Avance la simulation jusqu'à `date` dans une zone de taille `size`.
     func update(date: Date, size: CGSize) {
-        settings = SimulationSettings.load()
+        let preferences = SimulationSettings.load()
+        settings = preferences
         guard size.width > 1, size.height > 1 else { return }
+        // Tailles proportionnelles à la fenêtre : plus petites sur iPhone que sur iPad ou Mac.
+        settings = preferences.scaled(for: size)
         if size != bounds {
             fit(to: size)
         }
@@ -264,13 +267,16 @@ final class Simulation {
         blackHoles.removeAll { $0.isExpired(at: time) }
     }
 
-    /// Répartit une masse en planètes d'environ `pieceSize` projetées dans toutes les directions
-    /// (explosion d'un trou noir, explosion finale de la dernière planète). La masse est conservée.
+    /// Répartit une masse en planètes projetées dans toutes les directions (explosion d'un trou
+    /// noir, explosion finale de la dernière planète). La masse est conservée. Le nombre de
+    /// planètes est `count` s'il est donné, sinon autant qu'il en faut pour qu'elles fassent
+    /// environ `pieceSize`.
     private func scatter(mass: Double, around center: Vec2, spread: Double, velocity: Vec2,
-                         pieceSize: Double, speed: Double) -> [Planet] {
+                         pieceSize: Double = 1, count: Int? = nil, speed: Double) -> [Planet] {
         let room = max(1, Self.maxPlanets - planets.count)
-        let count = min(room, max(1, Int((mass / (pieceSize * pieceSize)).rounded())))
-        let weights = (0..<count).map { _ in Double.random(in: 0.5...1.5) }
+        let wanted = count ?? Int((mass / (pieceSize * pieceSize)).rounded())
+        let pieces = min(room, max(1, wanted))
+        let weights = (0..<pieces).map { _ in Double.random(in: 0.5...1.5) }
         let totalWeight = weights.reduce(0, +)
 
         return weights.map { weight in
@@ -323,24 +329,25 @@ final class Simulation {
         }
     }
 
-    /// S'il ne reste qu'une planète et plus de trou noir actif, elle explose violemment
-    /// en une multitude de toutes petites planètes, et l'animation continue.
-    /// S'il n'en reste aucune, l'animation recommence depuis le début après un court instant.
+    /// S'il ne reste qu'une planète et plus de trou noir actif, elle explose en
+    /// autant de petites planètes que le « Nombre de planètes » des préférences, et l'animation
+    /// continue. S'il n'en reste aucune, l'animation recommence depuis le début après un court instant.
     private func keepAlive() {
         guard blackHoles.isEmpty, planets.count <= 1 else {
             emptySince = nil
             return
         }
         if let last = planets.first {
-            let tiny = max(2, settings.minSize * 0.6)
-            if last.mass >= tiny * tiny * 8 {
+            let count = max(2, settings.planetCount)
+            // Éclats d'au moins 1 px en moyenne, sinon on recommence plutôt depuis le début.
+            if last.mass / Double(count) >= 1 {
                 planets = scatter(
                     mass: last.mass,
                     around: last.position,
                     spread: last.radius,
                     velocity: last.velocity * last.mobility(reference: settings.maxSize),
-                    pieceSize: tiny,
-                    speed: settings.explosionSpeed * 2
+                    count: count,
+                    speed: settings.explosionSpeed
                 )
                 emptySince = nil
                 return
