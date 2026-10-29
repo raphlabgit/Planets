@@ -26,7 +26,8 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
 - Un **clic / toucher** dans l'espace fait apparaître un **trou noir** : il attire et absorbe les planètes
   qui franchissent son horizon, tourne de plus en plus vite, puis, à la fin de sa durée de vie, explose en relâchant
   autant de masse de planètes qu'il en a avalé. Sa taille ne change pas.
-- S'il ne reste qu'une planète (ou aucune), l'animation se réinitialise et recommence depuis le début.
+- S'il ne reste qu'une planète, elle explose violemment en une multitude de toutes petites planètes
+  (même masse totale) ; s'il n'en reste aucune, l'animation recommence depuis le début.
 - Plein écran sur iPhone ; fenêtre redimensionnable sur iPad (Split View, Stage Manager) et sur Mac.
 
 ## Préférences (bouton ⚙︎, ou ⌘, sur Mac)

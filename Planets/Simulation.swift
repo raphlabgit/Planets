@@ -252,29 +252,35 @@ final class Simulation {
     /// En disparaissant, le trou noir explose et relâche toute la masse qu'il a avalée.
     private func releaseExpiredBlackHoles() {
         for hole in blackHoles where hole.isExpired(at: time) && hole.swallowedMass > 0 {
-            planets += makeBurst(of: hole)
+            planets += scatter(
+                mass: hole.swallowedMass,
+                around: hole.position,
+                spread: hole.size / 2,
+                velocity: .zero,
+                pieceSize: max(2, (settings.minSize + settings.maxSize) / 2),
+                speed: settings.explosionSpeed
+            )
         }
         blackHoles.removeAll { $0.isExpired(at: time) }
     }
 
-    /// Planètes relâchées par un trou noir : autant de masse que celle avalée, répartie en
-    /// planètes de la taille de celles du lancement, projetées dans toutes les directions.
-    private func makeBurst(of hole: BlackHole) -> [Planet] {
-        let typicalSize = max(2, (settings.minSize + settings.maxSize) / 2)
+    /// Répartit une masse en planètes d'environ `pieceSize` projetées dans toutes les directions
+    /// (explosion d'un trou noir, explosion finale de la dernière planète). La masse est conservée.
+    private func scatter(mass: Double, around center: Vec2, spread: Double, velocity: Vec2,
+                         pieceSize: Double, speed: Double) -> [Planet] {
         let room = max(1, Self.maxPlanets - planets.count)
-        let count = min(room, max(1, Int((hole.swallowedMass / (typicalSize * typicalSize)).rounded())))
+        let count = min(room, max(1, Int((mass / (pieceSize * pieceSize)).rounded())))
         let weights = (0..<count).map { _ in Double.random(in: 0.5...1.5) }
         let totalWeight = weights.reduce(0, +)
 
         return weights.map { weight in
             let direction = Vec2(angle: Double.random(in: 0..<(2 * .pi)), length: 1)
-            let speed = settings.explosionSpeed * Double.random(in: 0.6...1.4)
             // Taille plafonnée sous la taille critique pour éviter une explosion en chaîne immédiate.
-            let size = min((hole.swallowedMass * weight / totalWeight).squareRoot(), settings.criticalSize * 0.9)
+            let size = min((mass * weight / totalWeight).squareRoot(), settings.criticalSize * 0.9)
             return Planet(
                 id: makeID(),
-                position: hole.position + direction * (hole.size / 2 * Double.random(in: 0.2...1)),
-                velocity: direction * speed,
+                position: center + direction * (spread * Double.random(in: 0.2...1)),
+                velocity: velocity + direction * speed * Double.random(in: 0.6...1.4),
                 size: size,
                 immuneUntil: time + Self.fragmentImmunity
             )
@@ -317,12 +323,28 @@ final class Simulation {
         }
     }
 
-    /// S'il ne reste qu'une planète (ou aucune) et plus de trou noir actif,
-    /// l'animation recommence depuis le début après un court instant.
+    /// S'il ne reste qu'une planète et plus de trou noir actif, elle explose violemment
+    /// en une multitude de toutes petites planètes, et l'animation continue.
+    /// S'il n'en reste aucune, l'animation recommence depuis le début après un court instant.
     private func keepAlive() {
         guard blackHoles.isEmpty, planets.count <= 1 else {
             emptySince = nil
             return
+        }
+        if let last = planets.first {
+            let tiny = max(2, settings.minSize * 0.6)
+            if last.mass >= tiny * tiny * 8 {
+                planets = scatter(
+                    mass: last.mass,
+                    around: last.position,
+                    spread: last.radius,
+                    velocity: last.velocity * last.mobility(reference: settings.maxSize),
+                    pieceSize: tiny,
+                    speed: settings.explosionSpeed * 2
+                )
+                emptySince = nil
+                return
+            }
         }
         if let since = emptySince {
             if time - since > 1.5 { reset() }
