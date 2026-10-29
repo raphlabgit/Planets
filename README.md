@@ -62,7 +62,7 @@ mesure 720 px, et sont adaptées en proportion à la fenêtre réelle : environ 
 | Vitesse initiale max. | 80 px/s |
 | Gravité | × 3 |
 | Taille critique avant explosion | 80 px |
-| Puissance des explosions | 400 px/s |
+| Puissance des explosions | 600 px/s |
 | Bords de la fenêtre | Traverser (ou Rebondir) |
 | Durée de vie du trou noir | 10 s |
 | Taille / force du trou noir | 60 px / × 1 |

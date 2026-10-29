@@ -66,6 +66,9 @@ final class Simulation {
     /// Adoucissement de la gravité (points) pour éviter la singularité à distance nulle.
     static let softening = 6.0
     static let maxSpeed = 500.0
+    /// Les éclats d'une explosion dépassent `maxSpeed` tant qu'ils sont immunisés : sinon ils ne
+    /// peuvent pas échapper à leur propre gravité, se regroupent, ré-explosent, et ainsi de suite.
+    static let maxFragmentSpeed = 1500.0
     /// Limite de sécurité pour éviter les réactions en chaîne d'explosions.
     static let maxPlanets = 100
     /// Durée pendant laquelle les fragments d'une explosion ne fusionnent pas.
@@ -391,7 +394,8 @@ final class Simulation {
         let height = Double(bounds.height)
         for i in 0..<n {
             var p = planets[i]
-            p.velocity = (p.velocity + acceleration[i] * h).clamped(maxLength: Self.maxSpeed)
+            let limit = p.isImmune(at: time) ? Self.maxFragmentSpeed : Self.maxSpeed
+            p.velocity = (p.velocity + acceleration[i] * h).clamped(maxLength: limit)
             let mobility = i == playerIndex ? playerMobility(p) : p.mobility(reference: settings.maxSize)
             p.position += p.velocity * (h * mobility)
             switch settings.edgeMode {
