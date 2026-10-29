@@ -73,7 +73,8 @@ private struct PlanetCounter: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { _ in
             let count = simulation.planets.count
-            Text("\(count) planète\(count > 1 ? "s" : "")")
+            // Text("\(count) planète\(count > 1 ? "s" : "")")
+            Text("\(count)")
                 .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(.white)

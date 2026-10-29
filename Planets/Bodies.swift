@@ -42,7 +42,7 @@ struct BlackHole: Identifiable {
     /// Durée de vie en secondes.
     let lifetime: Double
     /// Diamètre de l'horizon : toute planète qui y entre est absorbée.
-    let size: Double
+    var size: Double
     /// Masse totale absorbée, relâchée quand le trou noir disparaît.
     var swallowedMass: Double = 0
 

@@ -99,20 +99,25 @@ final class Simulation {
     }
 
     /// Adapte la scène à la nouvelle taille de la fenêtre (premier affichage, redimensionnement,
-    /// rotation de l'écran) : positions mises à l'échelle pour garder la même répartition.
+    /// rotation de l'écran) : positions mises à l'échelle pour garder la même répartition, et
+    /// tailles ajustées comme les réglages (voir `SimulationSettings.scaled(for:)`), pour que
+    /// les planètes gardent la même taille par rapport à la taille critique.
     private func fit(to size: CGSize) {
         let old = bounds
         bounds = size
         guard old.width > 1, old.height > 1 else { return }
         let sx = Double(size.width / old.width)
         let sy = Double(size.height / old.height)
+        let ks = SimulationSettings.sizeScale(for: size) / SimulationSettings.sizeScale(for: old)
         for i in planets.indices {
             planets[i].position.x *= sx
             planets[i].position.y *= sy
+            planets[i].size *= ks
         }
         for h in blackHoles.indices {
             blackHoles[h].position.x *= sx
             blackHoles[h].position.y *= sy
+            blackHoles[h].size *= ks
         }
     }
 
