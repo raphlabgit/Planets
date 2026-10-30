@@ -48,12 +48,13 @@ enum PrefKey {
     static let gameHaptics = "gameHaptics"
     static let shipPlanetCount = "shipPlanetCount"
     static let shipSounds = "shipSounds"
+    static let blackHoleInterval = "blackHoleInterval"
 
     /// Réglages remis à zéro par « Rétablir les valeurs par défaut » (le mode jeu n'en fait pas partie).
     static let all = [
         planetCount, minSize, maxSize, initialSpeed, gravity, criticalSize, explosionSpeed, edgeMode,
         blackHoleLifetime, blackHoleSize, blackHoleStrength, showBackground, colorBySize, showVectors,
-        showPlanetCount, gameSounds, gameHaptics, shipPlanetCount, shipSounds,
+        showPlanetCount, gameSounds, gameHaptics, shipPlanetCount, shipSounds, blackHoleInterval,
     ]
 }
 
@@ -69,6 +70,9 @@ struct SimulationSettings {
     var blackHoleLifetime = 10.0
     var blackHoleSize = 60.0
     var blackHoleStrength = 1.0
+    /// Contemplation : un trou noir apparaît tout seul à peu près toutes les N secondes
+    /// (entre 0,7 et 1,3 fois ce délai ; 0 : jamais).
+    var blackHoleInterval = 30.0
     var showBackground = true
     var colorBySize = true
     var showVectors = false
@@ -122,6 +126,7 @@ struct SimulationSettings {
             PrefKey.blackHoleLifetime: d.blackHoleLifetime,
             PrefKey.blackHoleSize: d.blackHoleSize,
             PrefKey.blackHoleStrength: d.blackHoleStrength,
+            PrefKey.blackHoleInterval: d.blackHoleInterval,
             PrefKey.showBackground: d.showBackground,
             PrefKey.colorBySize: d.colorBySize,
             PrefKey.showVectors: d.showVectors,
@@ -157,6 +162,7 @@ struct SimulationSettings {
         s.blackHoleLifetime = double(PrefKey.blackHoleLifetime, s.blackHoleLifetime)
         s.blackHoleSize = double(PrefKey.blackHoleSize, s.blackHoleSize)
         s.blackHoleStrength = double(PrefKey.blackHoleStrength, s.blackHoleStrength)
+        s.blackHoleInterval = double(PrefKey.blackHoleInterval, s.blackHoleInterval)
         s.showBackground = bool(PrefKey.showBackground, s.showBackground)
         s.colorBySize = bool(PrefKey.colorBySize, s.colorBySize)
         s.showVectors = bool(PrefKey.showVectors, s.showVectors)

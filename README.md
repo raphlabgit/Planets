@@ -27,7 +27,8 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
   sa vitesse et sa direction.
 - Un **clic / toucher** dans l'espace fait apparaître un **trou noir** : il attire et absorbe les planètes
   qui franchissent son horizon, tourne de plus en plus vite, puis, à la fin de sa durée de vie, explose en relâchant
-  autant de masse de planètes qu'il en a avalé. Sa taille ne change pas.
+  autant de masse de planètes qu'il en a avalé. Sa taille ne change pas. Un trou noir apparaît aussi tout seul
+  à peu près toutes les 30 s (réglable, ou jamais).
 - S'il ne reste qu'une planète, elle explose en autant de petites planètes que le
   « Nombre de planètes » des préférences (même masse totale) ; s'il n'en reste aucune, l'animation recommence depuis le début.
 - Quand il ne reste que **5 planètes ou moins** (réglable dans les préférences), un **vaisseau ovni** entre par le bord
@@ -78,6 +79,7 @@ mesure 720 px, et sont adaptées en proportion à la fenêtre réelle : environ 
 | Bords de la fenêtre | Traverser (ou Rebondir) |
 | Durée de vie du trou noir | 10 s |
 | Taille / force du trou noir | 60 px / × 1 |
+| Apparition automatique d'un trou noir (contemplation) | ≈ toutes les 30 s (0 : jamais) |
 | Vaisseau ovni : apparaît à partir de / bruit du laser | 5 planètes (0 : jamais) / oui |
 | Fond étoilé, couleur selon la taille, vecteurs vitesse | oui / oui / non |
 

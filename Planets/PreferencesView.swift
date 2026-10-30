@@ -25,6 +25,7 @@ struct PreferencesView: View {
     @AppStorage(PrefKey.blackHoleLifetime) private var blackHoleLifetime = SimulationSettings.defaults.blackHoleLifetime
     @AppStorage(PrefKey.blackHoleSize) private var blackHoleSize = SimulationSettings.defaults.blackHoleSize
     @AppStorage(PrefKey.blackHoleStrength) private var blackHoleStrength = SimulationSettings.defaults.blackHoleStrength
+    @AppStorage(PrefKey.blackHoleInterval) private var blackHoleInterval = SimulationSettings.defaults.blackHoleInterval
     @AppStorage(PrefKey.showBackground) private var showBackground = SimulationSettings.defaults.showBackground
     @AppStorage(PrefKey.colorBySize) private var colorBySize = SimulationSettings.defaults.colorBySize
     @AppStorage(PrefKey.showVectors) private var showVectors = SimulationSettings.defaults.showVectors
@@ -83,6 +84,9 @@ struct PreferencesView: View {
                     SliderRow(title: "Taille", value: $blackHoleSize, range: 20...200, step: 5) { "\(Int($0)) px" }
                     SliderRow(title: "Force d'attraction", value: $blackHoleStrength, range: 0...5, step: 0.1) {
                         String(format: "× %.1f", $0)
+                    }
+                    SliderRow(title: "Apparition automatique", value: $blackHoleInterval, range: 0...120, step: 5) {
+                        $0 < 1 ? "Jamais" : "≈ toutes les \(Int($0)) s"
                     }
                 }
 

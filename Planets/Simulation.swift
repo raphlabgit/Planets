@@ -76,6 +76,8 @@ final class Simulation {
     /// Tirs de laser récents, pour l'animation.
     private(set) var lasers: [Laser] = []
     private var nextShipTime: Double = 0
+    /// Contemplation : instant où un trou noir apparaîtra tout seul.
+    private var nextAutoBlackHoleTime: Double = 0
     /// Débris des tirs du vaisseau, avec l'instant jusqu'auquel il les épargne : il ne s'acharne
     /// pas dessus juste après son tir.
     private var shipDebris: [Int: Double] = [:]
@@ -267,6 +269,7 @@ final class Simulation {
         lasers.removeAll()
         shipDebris.removeAll()
         nextShipTime = 2
+        nextAutoBlackHoleTime = autoBlackHoleDelay()
         planets = (0..<max(0, settings.planetCount)).map { _ in randomPlanet() }
         playerID = nil
         aimPoint = nil
@@ -397,6 +400,7 @@ final class Simulation {
         impacts.removeAll { $0.progress(at: time) >= 1 }
         updateGame(h)
         updateShip(h)
+        spawnBlackHoles()
         keepAlive()
     }
 
@@ -835,6 +839,25 @@ final class Simulation {
             shipDebris[piece.id] = time + Ship.debrisRespite
         }
         planets += debris
+    }
+
+    // MARK: - Trous noirs automatiques (contemplation)
+
+    /// Contemplation : un trou noir apparaît de temps en temps à un endroit au hasard, en plus
+    /// de ceux créés d'un toucher (réglage « Apparition automatique », 0 : jamais). S'il y en a
+    /// déjà un, le suivant attend qu'il ait disparu.
+    private func spawnBlackHoles() {
+        guard !isGame, settings.blackHoleInterval > 0, time >= nextAutoBlackHoleTime else { return }
+        if blackHoles.isEmpty {
+            addBlackHole(at: randomPoint(awayFrom: nil, distance: 0), trap: false)
+            nextAutoBlackHoleTime = time + autoBlackHoleDelay()
+        } else {
+            nextAutoBlackHoleTime = time + 2
+        }
+    }
+
+    private func autoBlackHoleDelay() -> Double {
+        max(1, settings.blackHoleInterval) * Double.random(in: 0.7...1.3)
     }
 
     /// S'il ne reste qu'une planète et plus de trou noir actif, elle explose en
