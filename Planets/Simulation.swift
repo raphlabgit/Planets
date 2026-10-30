@@ -436,7 +436,10 @@ final class Simulation {
             var p = planets[i]
             let limit = p.isImmune(at: time) ? Self.maxFragmentSpeed : Self.maxSpeed
             p.velocity = (p.velocity + acceleration[i] * h).clamped(maxLength: limit)
-            let mobility = i == playerIndex ? playerMobility(p) : p.mobility(reference: settings.maxSize)
+            // Les éclats encore immunisés filent à pleine vitesse quelle que soit leur taille,
+            // sinon les plus gros, ralentis, restent pris dans la gravité des autres.
+            let mobility = i == playerIndex ? playerMobility(p)
+                : p.isImmune(at: time) ? 1 : p.mobility(reference: settings.maxSize)
             p.position += p.velocity * (h * mobility)
             switch settings.edgeMode {
             case .wrap:
@@ -548,7 +551,8 @@ final class Simulation {
             planets += scatter(
                 mass: hole.swallowedMass,
                 around: hole.position,
-                spread: hole.size / 2,
+                // Les éclats partent du bord du trou noir gonflé (environ 0,9 × sa taille).
+                spread: hole.size * 0.9,
                 velocity: .zero,
                 pieceSize: max(2, (settings.minSize + settings.maxSize) / 2),
                 speed: settings.explosionSpeed
@@ -573,10 +577,11 @@ final class Simulation {
             let direction = Vec2(angle: Double.random(in: 0..<(2 * .pi)), length: 1)
             // Taille plafonnée sous la taille critique pour éviter une explosion en chaîne immédiate.
             let size = min((mass * weight / totalWeight).squareRoot(), settings.criticalSize * 0.9)
+            let distance = spread * Double.random(in: 0.7...1)
             return Planet(
                 id: makeID(),
-                position: center + direction * (spread * Double.random(in: 0.2...1)),
-                velocity: velocity + direction * speed * Double.random(in: 0.6...1.4),
+                position: center + direction * distance,
+                velocity: velocity + direction * ejectionSpeed(speed, mass: mass, distance: distance),
                 size: size,
                 immuneUntil: time + Self.fragmentImmunity
             )
@@ -584,6 +589,15 @@ final class Simulation {
     }
 
     // MARK: - Explosions
+
+    /// Vitesse d'un éclat : la puissance des explosions (préférences), mais jamais moins que la
+    /// vitesse de libération de toute la masse éjectée. Sinon, surtout dans une grande fenêtre
+    /// où les planètes sont plus lourdes, la gravité des éclats les fait retomber les uns sur les
+    /// autres et tout se regroupe au lieu de s'éparpiller.
+    private func ejectionSpeed(_ power: Double, mass: Double, distance: Double) -> Double {
+        let escape = (2 * Self.baseG * settings.gravity * mass / max(distance, Self.softening)).squareRoot()
+        return max(power * Double.random(in: 0.6...1.4), escape * Double.random(in: 1.05...1.3))
+    }
 
     private func explodeOversizedPlanets() {
         var fragments: [Planet] = []
@@ -612,10 +626,10 @@ final class Simulation {
             let weight = weights[k]
             let angle = baseAngle + 2 * .pi * Double(k) / Double(count) + Double.random(in: -0.25...0.25)
             let direction = Vec2(angle: angle, length: 1)
-            let speed = settings.explosionSpeed * Double.random(in: 0.6...1.4)
+            let speed = ejectionSpeed(settings.explosionSpeed, mass: parent.mass, distance: parent.radius)
             return Planet(
                 id: makeID(),
-                position: parent.position + direction * (parent.radius * 0.5),
+                position: parent.position + direction * parent.radius,
                 velocity: parent.velocity * parent.mobility(reference: settings.maxSize) + direction * speed,
                 size: (parent.mass * weight / totalWeight).squareRoot(),
                 immuneUntil: time + Self.fragmentImmunity
