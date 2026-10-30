@@ -2,7 +2,7 @@
 //  SpaceView.swift
 //  Planets
 //
-//  Dessin de l'espace (ancienne NSView Espace) : planètes, vecteurs vitesse et trous noirs.
+//  Dessin de l'espace (ancienne NSView Espace) : planètes, vecteurs vitesse, trous noirs et vaisseau.
 //  La vue fait avancer la simulation à chaque image de l'écran.
 //
 
@@ -22,6 +22,8 @@ struct SpaceView: View {
                 drawAim(in: &context)
                 drawImpacts(in: &context)
                 drawBlackHoles(in: &context)
+                drawLasers(in: &context)
+                drawShip(in: &context)
                 drawGameEnd(in: &context, size: size)
             }
         }
@@ -314,5 +316,66 @@ struct SpaceView: View {
             layer.rotate(by: .radians(hole.rotation(at: time)))
             layer.draw(image, in: rect)
         }
+    }
+
+    // MARK: - Vaisseau (contemplation)
+
+    /// Rayon laser vert (halo et cœur lumineux) qui s'éteint en 0,3 s, et éclair sur la planète touchée.
+    private func drawLasers(in context: inout GraphicsContext) {
+        guard !simulation.lasers.isEmpty else { return }
+        var layer = context
+        layer.blendMode = .plusLighter
+        // Le rayon part du vaisseau, qui continue d'avancer pendant le tir.
+        let origin = simulation.ship.flatMap { $0.fall == nil ? $0.position : nil }
+        let green = Color(red: 0.3, green: 1, blue: 0.35)
+
+        for laser in simulation.lasers {
+            let t = min(1, max(0, laser.progress(at: simulation.time)))
+            let fade = 1 - t
+            var beam = Path()
+            beam.move(to: (origin ?? laser.from).cgPoint)
+            beam.addLine(to: laser.to.cgPoint)
+            layer.stroke(beam, with: .color(green.opacity(0.4 * fade)),
+                         style: StrokeStyle(lineWidth: 7, lineCap: .round))
+            layer.stroke(beam, with: .color(Color(red: 0.9, green: 1, blue: 0.9).opacity(fade)),
+                         style: StrokeStyle(lineWidth: 2, lineCap: .round))
+
+            let hit = laser.to.cgPoint
+            let flash = 6 + 22 * t
+            layer.fill(
+                Path(ellipseIn: CGRect(x: hit.x - flash, y: hit.y - flash, width: 2 * flash, height: 2 * flash)),
+                with: .radialGradient(
+                    Gradient(colors: [Color.white.opacity(fade), green.opacity(0.6 * fade), green.opacity(0)]),
+                    center: hit, startRadius: 0, endRadius: flash
+                )
+            )
+        }
+    }
+
+    /// Le vaisseau flotte doucement, penche dans le sens de sa marche, et tournoie en
+    /// rétrécissant quand un trou noir l'avale.
+    private func drawShip(in context: inout GraphicsContext) {
+        guard let ship = simulation.ship else { return }
+        let time = simulation.time
+        let image = context.resolve(Image("Ship"))
+        let aspect = image.size.width > 0 ? image.size.height / image.size.width : 0.6
+        let height = ship.width * aspect
+        let rect = CGRect(x: -ship.width / 2, y: -height / 2, width: ship.width, height: height)
+
+        var tilt = max(-0.3, min(0.3, ship.velocity.x / Ship.maxSpeed))
+        var scale = 1.0
+        var bob = sin(ship.age(at: time) * 2.5) * height * 0.06
+        if let fall = ship.fallProgress(at: time) {
+            tilt += 4 * .pi * fall
+            scale = 1 - 0.85 * fall
+            bob = 0
+        }
+
+        var layer = context
+        layer.opacity = ship.opacity(at: time)
+        layer.translateBy(x: ship.position.x, y: ship.position.y + bob)
+        layer.rotate(by: .radians(tilt))
+        layer.scaleBy(x: scale, y: scale)
+        layer.draw(image, in: rect)
     }
 }

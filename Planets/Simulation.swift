@@ -13,6 +13,9 @@
 //  - Un trou noir attire fortement les planètes, absorbe celles qui franchissent
 //    son horizon, puis s'évanouit à la fin de sa durée de vie.
 //
+//  Mode contemplation : quand il ne reste que 3 planètes ou moins, un vaisseau ovni traverse
+//  l'écran (voir `Ship`) et détruit au laser les planètes qui passent devant lui.
+//
 //  Mode jeu « Deviens un soleil » : le joueur lance sa planète dans une direction (doigt ou
 //  souris), absorbe les plus petites et doit fuir les plus grosses. Il gagne en devenant un soleil (80 % de
 //  la taille critique) ; il perd s'il est percuté par plus gros, avalé par un trou noir ou
@@ -65,6 +68,18 @@ final class Simulation {
     private var launchUntil: Double = 0
     private var nextBlackHoleTime: Double = 0
     private var nextSpawnTime: Double = 0
+
+    // MARK: Vaisseau (contemplation)
+
+    /// Vaisseau ovni qui traverse l'écran quand il reste peu de planètes.
+    private(set) var ship: Ship?
+    /// Tirs de laser récents, pour l'animation.
+    private(set) var lasers: [Laser] = []
+    private var nextShipTime: Double = 0
+    /// Débris des tirs du vaisseau : il ne s'acharne pas dessus pendant sa traversée.
+    private var shipDebris = Set<Int>()
+    /// Le vaisseau apparaît quand il ne reste que ce nombre de planètes, ou moins.
+    static let shipPlanetThreshold = 3
 
     /// Mode jeu : attraction d'un piège formé, multipliée jusqu'à (1 + trapPull) près de l'horizon
     /// et qui revient à la normale à `trapReach` fois son diamètre.
@@ -231,6 +246,14 @@ final class Simulation {
             blackHoles[h].position.y *= sy
             blackHoles[h].size *= ks
         }
+        // Le vaisseau garde sa place relative ; s'il était en train de tomber, il disparaît.
+        if ship?.fall != nil {
+            removeShip()
+        }
+        ship?.position.x *= sx
+        ship?.position.y *= sy
+        ship?.width *= ks
+        lasers.removeAll()
     }
 
     private func reset() {
@@ -239,6 +262,10 @@ final class Simulation {
         emptySince = nil
         blackHoles.removeAll()
         impacts.removeAll()
+        ship = nil
+        lasers.removeAll()
+        shipDebris.removeAll()
+        nextShipTime = 2
         planets = (0..<max(0, settings.planetCount)).map { _ in randomPlanet() }
         playerID = nil
         aimPoint = nil
@@ -368,6 +395,7 @@ final class Simulation {
         releaseExpiredBlackHoles()
         impacts.removeAll { $0.progress(at: time) >= 1 }
         updateGame(h)
+        updateShip(h)
         keepAlive()
     }
 
@@ -635,6 +663,149 @@ final class Simulation {
                 immuneUntil: time + Self.fragmentImmunity
             )
         }
+    }
+
+    // MARK: - Vaisseau (contemplation)
+
+    /// Fait apparaître, avancer et tirer le vaisseau, et le retire quand il a quitté l'écran,
+    /// s'est évanoui ou a été avalé par un trou noir.
+    private func updateShip(_ h: Double) {
+        lasers.removeAll { $0.progress(at: time) >= 1 }
+        guard !isGame else { return }
+        guard var current = ship else {
+            if planets.count <= Self.shipPlanetThreshold, time >= nextShipTime {
+                ship = launchShip()
+            }
+            return
+        }
+
+        if current.isGone(at: time) {
+            removeShip()
+            return
+        }
+        // Aspiré par un trou noir : il tourne autour en s'en rapprochant, sans tirer.
+        if let progress = current.fallProgress(at: time) {
+            current.position = current.fallPosition(progress: progress) ?? current.position
+            ship = current
+            return
+        }
+
+        current.velocity = (current.velocity + shipAcceleration(at: current.position) * h)
+            .clamped(maxLength: Ship.maxSpeed)
+        current.position += current.velocity * h
+
+        for hole in blackHoles {
+            let horizon = hole.size / 2 * hole.scale(at: time)
+            let reach = horizon + current.width * 0.15
+            let offset = current.position - hole.position
+            if offset.lengthSquared < reach * reach {
+                // Il continue de tourner dans le sens où il arrivait autour du trou noir.
+                let cross = offset.x * current.velocity.y - offset.y * current.velocity.x
+                current.fall = (time, hole.position, current.position, cross < 0 ? -1.0 : 1.0)
+                ship = current
+                return
+            }
+        }
+
+        // Sorti de l'écran (il part d'un peu en dehors, d'où la marge).
+        let margin = current.width
+        if current.position.x < -margin || current.position.x > Double(bounds.width) + margin
+            || current.position.y < -margin || current.position.y > Double(bounds.height) + margin {
+            removeShip()
+            return
+        }
+
+        if time >= current.nextShot, let target = shipTarget(current) {
+            fireLaser(from: current.position, at: target)
+            current.nextShot = time + Double.random(in: Ship.reloadTime)
+        }
+        ship = current
+    }
+
+    private func removeShip() {
+        ship = nil
+        shipDebris.removeAll()
+        nextShipTime = time + Double.random(in: 6...12)
+    }
+
+    /// Le vaisseau entre par le bord gauche ou droit, à mi-hauteur environ, et part lentement
+    /// vers l'autre côté.
+    private func launchShip() -> Ship {
+        let width = Ship.baseWidth * min(1.4, max(0.6, SimulationSettings.sizeScale(for: bounds)))
+        let fromLeft = Bool.random()
+        let x = fromLeft ? -width / 2 : Double(bounds.width) + width / 2
+        let y = Double(bounds.height) * Double.random(in: 0.2...0.8)
+        // Légèrement en biais, vers le haut ou vers le bas.
+        let angle = Double.random(in: -0.25...0.25) + (fromLeft ? 0 : .pi)
+        return Ship(
+            position: Vec2(x: x, y: y),
+            velocity: Vec2(angle: angle, length: Double.random(in: Ship.launchSpeed)),
+            birth: time,
+            width: width,
+            nextShot: time + 1
+        )
+    }
+
+    /// Gravité subie par le vaisseau (il n'en exerce aucune). L'adoucissement vaut au moins le
+    /// rayon de la planète : en la survolant, il n'est pas projeté à toute vitesse.
+    private func shipAcceleration(at position: Vec2) -> Vec2 {
+        let g = Self.baseG * settings.gravity
+        var acceleration = Vec2.zero
+        for planet in planets where planet.alive {
+            let d = planet.position - position
+            let eps = max(Self.softening, planet.radius)
+            let r2 = d.lengthSquared + eps * eps
+            acceleration += d * (g * planet.mass / (r2 * r2.squareRoot()))
+        }
+        for hole in blackHoles {
+            let mass = hole.size * hole.size * Self.blackHoleDensity * settings.blackHoleStrength * hole.intensity(at: time)
+            let eps = hole.size / 2
+            let d = hole.position - position
+            let r2 = d.lengthSquared + eps * eps
+            acceleration += d * (Self.baseG * mass / (r2 * r2.squareRoot()))
+        }
+        return acceleration
+    }
+
+    /// La planète la plus proche devant le vaisseau (dans son cône de tir et à portée), en
+    /// ignorant les débris de ses tirs et les éclats d'explosion encore immunisés.
+    private func shipTarget(_ ship: Ship) -> Int? {
+        let speed = ship.velocity.length
+        guard speed > 1 else { return nil }
+        let heading = ship.velocity / speed
+        let range = Ship.laserRange * Double(min(bounds.width, bounds.height))
+        let minCosine = cos(Ship.laserCone)
+        var best: (index: Int, distance: Double)?
+        for i in planets.indices where planets[i].alive && !planets[i].isImmune(at: time)
+            && !shipDebris.contains(planets[i].id) {
+            let d = planets[i].position - ship.position
+            let distance = d.length
+            guard distance > 1, distance < range + planets[i].radius,
+                  (d.x * heading.x + d.y * heading.y) / distance >= minCosine else { continue }
+            if distance < best?.distance ?? .infinity {
+                best = (i, distance)
+            }
+        }
+        return best?.index
+    }
+
+    /// Le laser fait éclater la planète en quelques débris (la masse est conservée) ;
+    /// une toute petite planète est simplement pulvérisée.
+    private func fireLaser(from origin: Vec2, at index: Int) {
+        let target = planets.remove(at: index)
+        lasers.append(Laser(from: origin, to: target.position, birth: time))
+        let pieces = min(5, max(2, Int(target.size / 6)))
+        guard target.mass / Double(pieces) >= 4 else { return }
+        let debris = scatter(
+            mass: target.mass,
+            around: target.position,
+            spread: target.radius,
+            velocity: target.velocity * target.mobility(reference: settings.maxSize),
+            count: pieces,
+            speed: settings.explosionSpeed * 0.5
+        )
+        shipDebris.formUnion(debris.map(\.id))
+        planets += debris
     }
 
     /// S'il ne reste qu'une planète et plus de trou noir actif, elle explose en

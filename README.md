@@ -30,6 +30,10 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
   autant de masse de planètes qu'il en a avalé. Sa taille ne change pas.
 - S'il ne reste qu'une planète, elle explose en autant de petites planètes que le
   « Nombre de planètes » des préférences (même masse totale) ; s'il n'en reste aucune, l'animation recommence depuis le début.
+- Quand il ne reste que **3 planètes ou moins**, un **vaisseau ovni** entre par le bord gauche ou droit et traverse
+  lentement l'écran. Il n'a aucune gravité, mais celle des planètes et des trous noirs dévie sa route ; un trou noir
+  peut l'avaler (il tournoie et disparaît dedans). Il tire au **laser** sur la planète la plus proche devant lui,
+  qui éclate en quelques débris (une toute petite planète est pulvérisée). Purement décoratif.
 - Plein écran sur iPhone ; fenêtre redimensionnable sur iPad (Split View, Stage Manager) et sur Mac.
 
 ## Mode jeu « Deviens un soleil »
@@ -82,11 +86,11 @@ en haut à droite, à côté du bouton ⚙︎ (masquable dans les préférences)
 | --- | --- | --- |
 | `PlanetsApp.swift` | Point d'entrée, fenêtre, menu Mac | `main.m`, `MainMenu.xib` |
 | `ContentView.swift` | Fond, boutons, clic → trou noir | `Espace` (`mouseDown:`) |
-| `SpaceView.swift` | Dessin des planètes et trous noirs | `Espace` (`drawRect:`), `Planete draw:`, `TrouNoir draw:` |
-| `Simulation.swift` | Gravité, chocs, explosions, trous noirs | `AppController calcul:`, `PlaneteArray` |
-| `Bodies.swift` | Structures `Planet` et `BlackHole` | `Planete`, `TrouNoir` |
+| `SpaceView.swift` | Dessin des planètes, trous noirs et du vaisseau | `Espace` (`drawRect:`), `Planete draw:`, `TrouNoir draw:` |
+| `Simulation.swift` | Gravité, chocs, explosions, trous noirs, vaisseau | `AppController calcul:`, `PlaneteArray` |
+| `Bodies.swift` | Structures `Planet`, `BlackHole`, `Ship` et `Laser` | `Planete`, `TrouNoir` |
 | `SimulationSettings.swift` | Préférences enregistrées | constantes de `Planets_Prefix.pch` |
 | `PreferencesView.swift` | Écran des préférences | curseurs G / masse de `MainMenu.xib` |
 | `Vec2.swift` | Calcul vectoriel | `sommeVecteur:`, `multiplieVecteur:`… |
 
-L'icône d'origine est reprise dans `Assets.xcassets`, avec les nouvelles images du fond (`fond.png`) et du trou noir (`blackhole.png`).
+L'icône d'origine est reprise dans `Assets.xcassets`, avec les nouvelles images du fond (`fond.png`) et du trou noir (`blackhole.png`) et du vaisseau (`ufo.png`).

@@ -3,7 +3,7 @@
 //  Planets
 //
 //  Les corps de la simulation : planètes et trous noirs
-//  (anciennes classes Planete et TrouNoir).
+//  (anciennes classes Planete et TrouNoir), et le vaisseau ovni du mode contemplation.
 //
 
 import Foundation
@@ -118,6 +118,80 @@ struct Impact {
     let birth: Double
 
     static let duration = 0.35
+
+    /// 0 → 1 pendant l'animation.
+    func progress(at time: Double) -> Double { (time - birth) / Self.duration }
+}
+
+/// Vaisseau ovni du mode contemplation, purement décoratif : sans masse, il traverse l'écran
+/// porté par sa vitesse de départ et dévié par la gravité des planètes et des trous noirs.
+/// Il tire au laser sur les planètes devant lui, et un trou noir peut l'avaler.
+struct Ship {
+    var position: Vec2
+    var velocity: Vec2
+    let birth: Double
+    /// Largeur d'affichage en points.
+    var width: Double
+    /// Instant (temps de simulation) du prochain tir possible.
+    var nextShot: Double
+    /// Aspiration par un trou noir : début, centre du trou noir, position de départ et sens
+    /// de rotation (+1 ou -1, celui dans lequel il arrivait autour du trou noir).
+    var fall: (start: Double, center: Vec2, from: Vec2, turn: Double)?
+
+    /// Largeur du vaisseau dans une fenêtre de référence (720 points de petit côté).
+    static let baseWidth = 70.0
+    /// Vitesse de départ (points/s) : il traverse l'écran tranquillement.
+    static let launchSpeed = 55.0...80.0
+    static let maxSpeed = 300.0
+    /// Au-delà, il s'éclipse doucement (s'il reste par exemple pris en orbite autour d'une planète).
+    static let maxLifetime = 40.0
+    static let fadeOut = 1.0
+    /// Durée de l'aspiration en spirale dans un trou noir.
+    static let fallDuration = 0.8
+    /// Portée du laser, en part du petit côté de la fenêtre.
+    static let laserRange = 0.45
+    /// Demi-angle (radians) du cône de tir devant le vaisseau.
+    static let laserCone = 0.35
+    /// Délai entre deux tirs (s).
+    static let reloadTime = 1.2...2.2
+
+    func age(at time: Double) -> Double { time - birth }
+
+    /// Aspiration par un trou noir : 0 → 1 (nil s'il n'est pas aspiré).
+    func fallProgress(at time: Double) -> Double? {
+        fall.map { min(1, max(0, (time - $0.start) / Self.fallDuration)) }
+    }
+
+    /// Vrai une fois avalé par un trou noir ou à la fin de sa durée de vie.
+    func isGone(at time: Double) -> Bool {
+        age(at: time) >= Self.maxLifetime || (fallProgress(at: time) ?? 0) >= 1
+    }
+
+    /// Position pendant l'aspiration : il tourne autour du trou noir en s'en rapprochant.
+    func fallPosition(progress: Double) -> Vec2? {
+        guard let fall else { return nil }
+        let offset = fall.from - fall.center
+        let angle = 3 * .pi * progress * fall.turn
+        let shrink = pow(1 - progress, 1.5)
+        let turned = Vec2(x: offset.x * cos(angle) - offset.y * sin(angle),
+                          y: offset.x * sin(angle) + offset.y * cos(angle))
+        return fall.center + turned * shrink
+    }
+
+    /// Opacité : il s'efface à la fin de sa durée de vie ou en tombant dans un trou noir.
+    func opacity(at time: Double) -> Double {
+        let fading = min(1, max(0, (Self.maxLifetime - age(at: time)) / Self.fadeOut))
+        return min(fading, 1 - (fallProgress(at: time) ?? 0))
+    }
+}
+
+/// Tir de laser du vaisseau : rayon très bref et éclair sur la planète touchée.
+struct Laser {
+    let from: Vec2
+    let to: Vec2
+    let birth: Double
+
+    static let duration = 0.3
 
     /// 0 → 1 pendant l'animation.
     func progress(at time: Double) -> Double { (time - birth) / Self.duration }
