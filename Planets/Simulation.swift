@@ -13,8 +13,8 @@
 //  - Un trou noir attire fortement les planètes, absorbe celles qui franchissent
 //    son horizon, puis s'évanouit à la fin de sa durée de vie.
 //
-//  Mode contemplation : quand il ne reste que 3 planètes ou moins, un vaisseau ovni traverse
-//  l'écran (voir `Ship`) et détruit au laser les planètes qui passent devant lui.
+//  Mode contemplation : quand il reste peu de planètes (5 ou moins par défaut), un vaisseau ovni
+//  traverse l'écran (voir `Ship`) et détruit au laser les planètes qui passent devant lui.
 //
 //  Mode jeu « Deviens un soleil » : le joueur lance sa planète dans une direction (doigt ou
 //  souris), absorbe les plus petites et doit fuir les plus grosses. Il gagne en devenant un soleil (80 % de
@@ -76,10 +76,11 @@ final class Simulation {
     /// Tirs de laser récents, pour l'animation.
     private(set) var lasers: [Laser] = []
     private var nextShipTime: Double = 0
-    /// Débris des tirs du vaisseau : il ne s'acharne pas dessus pendant sa traversée.
-    private var shipDebris = Set<Int>()
-    /// Le vaisseau apparaît quand il ne reste que ce nombre de planètes, ou moins.
-    static let shipPlanetThreshold = 3
+    /// Débris des tirs du vaisseau, avec l'instant jusqu'auquel il les épargne : il ne s'acharne
+    /// pas dessus juste après son tir.
+    private var shipDebris: [Int: Double] = [:]
+    /// Nombre de tirs depuis le début (pour le bruit de blaster).
+    private(set) var laserShots = 0
 
     /// Mode jeu : attraction d'un piège formé, multipliée jusqu'à (1 + trapPull) près de l'horizon
     /// et qui revient à la normale à `trapReach` fois son diamètre.
@@ -673,7 +674,7 @@ final class Simulation {
         lasers.removeAll { $0.progress(at: time) >= 1 }
         guard !isGame else { return }
         guard var current = ship else {
-            if planets.count <= Self.shipPlanetThreshold, time >= nextShipTime {
+            if settings.shipPlanetCount > 0, planets.count <= settings.shipPlanetCount, time >= nextShipTime {
                 ship = launchShip()
             }
             return
@@ -689,10 +690,10 @@ final class Simulation {
             ship = current
             return
         }
-
         current.velocity = (current.velocity + shipAcceleration(at: current.position) * h)
-            .clamped(maxLength: Ship.maxSpeed)
+            .clamped(maxLength: current.speedLimit)
         current.position += current.velocity * h
+        skimPlanets(&current, h)
 
         for hole in blackHoles {
             let horizon = hole.size / 2 * hole.scale(at: time)
@@ -722,6 +723,62 @@ final class Simulation {
         ship = current
     }
 
+    /// Le vaisseau ne s'écrase jamais : au contact d'une planète, il glisse à sa surface (sa
+    /// vitesse vers elle, mesurée par rapport à la planète qui bouge, est annulée). Puis il accélère
+    /// en tournant autour d'elle, même après avoir décollé, jusqu'à dépasser sa vitesse de
+    /// libération, et repart comme une fronde. Les éclats tout juste éjectés le frôlent sans le gêner.
+    private func skimPlanets(_ ship: inout Ship, _ h: Double) {
+        let hull = ship.width * 0.3
+        // Deux passes : coincé entre deux planètes, il est repoussé hors des deux.
+        for _ in 0..<2 {
+            for planet in planets where planet.alive && !planet.isImmune(at: time) {
+                let offset = ship.position - planet.position
+                let distance = offset.length
+                let reach = planet.radius + hull
+                guard distance < reach else { continue }
+                let normal = distance > 1e-6 ? offset / distance : Vec2(x: 0, y: -1)
+                ship.position = planet.position + normal * reach
+                let relative = ship.velocity - planetVelocity(planet)
+                let radial = relative.x * normal.x + relative.y * normal.y
+                if radial < 0 {
+                    ship.velocity -= normal * radial
+                }
+                ship.escaping = planet.id
+            }
+        }
+
+        guard let id = ship.escaping else {
+            ship.speedLimit = max(Ship.maxSpeed, ship.speedLimit - 150 * h)
+            return
+        }
+        guard let planet = planets.first(where: { $0.id == id && $0.alive }) else {
+            ship.escaping = nil
+            return
+        }
+        let offset = ship.position - planet.position
+        let distance = max(1, offset.length)
+        let normal = offset / distance
+        let carried = planetVelocity(planet)
+        let relative = ship.velocity - carried
+        let needed = (2 * Self.baseG * settings.gravity * planet.mass / distance).squareRoot() * 1.15
+        guard relative.length < needed else {
+            ship.escaping = nil
+            return
+        }
+        // Il tourne dans le sens où il arrivait (au hasard s'il arrivait de face).
+        var along = relative - normal * (relative.x * normal.x + relative.y * normal.y)
+        if along.length < 1 {
+            along = Bool.random() ? Vec2(x: -normal.y, y: normal.x) : Vec2(x: normal.y, y: -normal.x)
+        }
+        ship.velocity += along / along.length * (Ship.boost * h)
+        ship.speedLimit = max(ship.speedLimit, needed + carried.length)
+    }
+
+    /// Vitesse à laquelle une planète se déplace réellement à l'écran.
+    private func planetVelocity(_ planet: Planet) -> Vec2 {
+        planet.velocity * (planet.isImmune(at: time) ? 1 : planet.mobility(reference: settings.maxSize))
+    }
+
     private func removeShip() {
         ship = nil
         shipDebris.removeAll()
@@ -746,15 +803,14 @@ final class Simulation {
         )
     }
 
-    /// Gravité subie par le vaisseau (il n'en exerce aucune). L'adoucissement vaut au moins le
-    /// rayon de la planète : en la survolant, il n'est pas projeté à toute vitesse.
+    /// Gravité subie par le vaisseau (il n'en exerce aucune) : la même que pour les planètes.
     private func shipAcceleration(at position: Vec2) -> Vec2 {
         let g = Self.baseG * settings.gravity
+        let eps2 = Self.softening * Self.softening
         var acceleration = Vec2.zero
         for planet in planets where planet.alive {
             let d = planet.position - position
-            let eps = max(Self.softening, planet.radius)
-            let r2 = d.lengthSquared + eps * eps
+            let r2 = d.lengthSquared + eps2
             acceleration += d * (g * planet.mass / (r2 * r2.squareRoot()))
         }
         for hole in blackHoles {
@@ -768,22 +824,27 @@ final class Simulation {
     }
 
     /// La planète la plus proche devant le vaisseau (dans son cône de tir et à portée), en
-    /// ignorant les débris de ses tirs et les éclats d'explosion encore immunisés.
+    /// épargnant un moment les débris de ses tirs, et les éclats d'explosion encore immunisés.
     private func shipTarget(_ ship: Ship) -> Int? {
         let speed = ship.velocity.length
         guard speed > 1 else { return nil }
         let heading = ship.velocity / speed
         let range = Ship.laserRange * Double(min(bounds.width, bounds.height))
-        let minCosine = cos(Ship.laserCone)
-        var best: (index: Int, distance: Double)?
+        var best: (index: Int, gap: Double)?
         for i in planets.indices where planets[i].alive && !planets[i].isImmune(at: time)
-            && !shipDebris.contains(planets[i].id) {
+            && time >= shipDebris[planets[i].id, default: 0] {
             let d = planets[i].position - ship.position
             let distance = d.length
-            guard distance > 1, distance < range + planets[i].radius,
-                  (d.x * heading.x + d.y * heading.y) / distance >= minCosine else { continue }
-            if distance < best?.distance ?? .infinity {
-                best = (i, distance)
+            let radius = planets[i].radius
+            guard distance > 1, distance < range + radius else { continue }
+            // Une grosse planète est visée dès qu'une partie de son disque est dans le cône,
+            // même si son centre n'y est pas.
+            let angle = acos(min(1, max(-1, (d.x * heading.x + d.y * heading.y) / distance)))
+            guard angle - asin(min(1, radius / distance)) <= Ship.laserCone else { continue }
+            // La plus proche en comptant jusqu'à sa surface : les grosses ne sont pas désavantagées.
+            let gap = distance - radius
+            if gap < best?.gap ?? .infinity {
+                best = (i, gap)
             }
         }
         return best?.index
@@ -794,6 +855,7 @@ final class Simulation {
     private func fireLaser(from origin: Vec2, at index: Int) {
         let target = planets.remove(at: index)
         lasers.append(Laser(from: origin, to: target.position, birth: time))
+        laserShots += 1
         let pieces = min(5, max(2, Int(target.size / 6)))
         guard target.mass / Double(pieces) >= 4 else { return }
         let debris = scatter(
@@ -804,7 +866,10 @@ final class Simulation {
             count: pieces,
             speed: settings.explosionSpeed * 0.5
         )
-        shipDebris.formUnion(debris.map(\.id))
+        shipDebris = shipDebris.filter { $0.value > time }
+        for piece in debris {
+            shipDebris[piece.id] = time + Ship.debrisRespite
+        }
         planets += debris
     }
 

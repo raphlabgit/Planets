@@ -2,7 +2,8 @@
 //  GameSounds.swift
 //  Planets
 //
-//  Jingles du mode jeu (victoire et défaite), préchargés pour partir sans délai.
+//  Jingles du mode jeu (victoire et défaite) et tir de laser du vaisseau, préchargés pour
+//  partir sans délai.
 //
 
 import AVFoundation
@@ -17,7 +18,7 @@ final class GameSounds {
         // Son « ambiant » : se mélange à la musique en cours et respecte le bouton silencieux.
         try? AVAudioSession.sharedInstance().setCategory(.ambient)
         #endif
-        for name in ["win", "lose"] {
+        for name in ["win", "lose", "blaster"] {
             let url = Bundle.main.url(forResource: name, withExtension: "m4a")
                 ?? Bundle.main.url(forResource: name, withExtension: "m4a", subdirectory: "Sounds")
             if let url, let player = try? AVAudioPlayer(contentsOf: url) {
@@ -30,6 +31,8 @@ final class GameSounds {
     func playWin() { play("win") }
 
     func playLose() { play("lose") }
+
+    func playBlaster() { play("blaster") }
 
     private func play(_ name: String) {
         guard let player = players[name] else { return }

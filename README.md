@@ -30,10 +30,12 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
   autant de masse de planètes qu'il en a avalé. Sa taille ne change pas.
 - S'il ne reste qu'une planète, elle explose en autant de petites planètes que le
   « Nombre de planètes » des préférences (même masse totale) ; s'il n'en reste aucune, l'animation recommence depuis le début.
-- Quand il ne reste que **3 planètes ou moins**, un **vaisseau ovni** entre par le bord gauche ou droit et traverse
-  lentement l'écran. Il n'a aucune gravité, mais celle des planètes et des trous noirs dévie sa route ; un trou noir
-  peut l'avaler (il tournoie et disparaît dedans). Il tire au **laser** sur la planète la plus proche devant lui,
-  qui éclate en quelques débris (une toute petite planète est pulvérisée). Purement décoratif.
+- Quand il ne reste que **5 planètes ou moins** (réglable dans les préférences), un **vaisseau ovni** entre par le bord
+  gauche ou droit et traverse lentement l'écran. Il n'a aucune gravité, mais celle des planètes et des trous noirs dévie
+  sa route. Il ne s'écrase jamais : au contact d'une planète, il glisse autour d'elle et repart comme une fronde.
+  Un trou noir peut l'avaler (il tournoie et disparaît dedans).
+  Il tire au **laser** sur la planète la plus proche devant lui, qui éclate en quelques débris (une toute petite planète
+  est pulvérisée), avec un petit bruit de blaster (désactivable). Purement décoratif.
 - Plein écran sur iPhone ; fenêtre redimensionnable sur iPad (Split View, Stage Manager) et sur Mac.
 
 ## Mode jeu « Deviens un soleil »
@@ -75,6 +77,7 @@ mesure 720 px, et sont adaptées en proportion à la fenêtre réelle : environ 
 | Bords de la fenêtre | Traverser (ou Rebondir) |
 | Durée de vie du trou noir | 10 s |
 | Taille / force du trou noir | 60 px / × 1 |
+| Vaisseau ovni : apparaît à partir de / bruit du laser | 5 planètes (0 : jamais) / oui |
 | Fond étoilé, couleur selon la taille, vecteurs vitesse | oui / oui / non |
 
 Bouton **Réinitialiser l'animation** dans les préférences (et ⌘R sur Mac). Le nombre de planètes s'affiche

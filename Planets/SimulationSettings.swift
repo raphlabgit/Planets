@@ -46,12 +46,14 @@ enum PrefKey {
     static let gameMode = "gameMode"
     static let gameSounds = "gameSounds"
     static let gameHaptics = "gameHaptics"
+    static let shipPlanetCount = "shipPlanetCount"
+    static let shipSounds = "shipSounds"
 
     /// Réglages remis à zéro par « Rétablir les valeurs par défaut » (le mode jeu n'en fait pas partie).
     static let all = [
         planetCount, minSize, maxSize, initialSpeed, gravity, criticalSize, explosionSpeed, edgeMode,
         blackHoleLifetime, blackHoleSize, blackHoleStrength, showBackground, colorBySize, showVectors,
-        showPlanetCount, gameSounds, gameHaptics,
+        showPlanetCount, gameSounds, gameHaptics, shipPlanetCount, shipSounds,
     ]
 }
 
@@ -77,6 +79,11 @@ struct SimulationSettings {
     var gameSounds = true
     /// Mode jeu : vibrations (iPhone) à chaque absorption, à la victoire et à la défaite.
     var gameHaptics = true
+    /// Contemplation : le vaisseau ovni apparaît quand il ne reste que ce nombre de planètes,
+    /// ou moins (0 : jamais).
+    var shipPlanetCount = 5
+    /// Contemplation : bruit de blaster à chaque tir du vaisseau.
+    var shipSounds = true
 
     static let defaults = SimulationSettings()
 
@@ -122,6 +129,8 @@ struct SimulationSettings {
             PrefKey.gameMode: d.gameMode,
             PrefKey.gameSounds: d.gameSounds,
             PrefKey.gameHaptics: d.gameHaptics,
+            PrefKey.shipPlanetCount: d.shipPlanetCount,
+            PrefKey.shipSounds: d.shipSounds,
         ])
     }
 
@@ -155,6 +164,8 @@ struct SimulationSettings {
         s.gameMode = bool(PrefKey.gameMode, s.gameMode)
         s.gameSounds = bool(PrefKey.gameSounds, s.gameSounds)
         s.gameHaptics = bool(PrefKey.gameHaptics, s.gameHaptics)
+        s.shipPlanetCount = (store.object(forKey: PrefKey.shipPlanetCount) as? NSNumber)?.intValue ?? s.shipPlanetCount
+        s.shipSounds = bool(PrefKey.shipSounds, s.shipSounds)
         return s
     }
 }

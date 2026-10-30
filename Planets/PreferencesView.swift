@@ -31,6 +31,8 @@ struct PreferencesView: View {
     @AppStorage(PrefKey.showPlanetCount) private var showPlanetCount = SimulationSettings.defaults.showPlanetCount
     @AppStorage(PrefKey.gameSounds) private var gameSounds = SimulationSettings.defaults.gameSounds
     @AppStorage(PrefKey.gameHaptics) private var gameHaptics = SimulationSettings.defaults.gameHaptics
+    @AppStorage(PrefKey.shipPlanetCount) private var shipPlanetCount = SimulationSettings.defaults.shipPlanetCount
+    @AppStorage(PrefKey.shipSounds) private var shipSounds = SimulationSettings.defaults.shipSounds
 
     var body: some View {
         NavigationStack {
@@ -84,6 +86,17 @@ struct PreferencesView: View {
                     }
                 }
 
+                Section {
+                    SliderRow(title: "Apparaît à partir de", value: shipPlanetCountBinding, range: 0...20, step: 1) {
+                        $0 < 1 ? "Jamais" : "\(Int($0)) planète\($0 >= 2 ? "s" : "")"
+                    }
+                    Toggle("Bruit du laser", isOn: $shipSounds)
+                } header: {
+                    Text("Vaisseau ovni")
+                } footer: {
+                    Text("En contemplation, un vaisseau traverse l'écran quand il ne reste que ce nombre de planètes, ou moins.")
+                }
+
                 Section("Affichage") {
                     Toggle("Fond étoilé", isOn: $showBackground)
                     Toggle("Couleur selon la taille", isOn: $colorBySize)
@@ -129,6 +142,13 @@ struct PreferencesView: View {
         Binding(
             get: { Double(planetCount) },
             set: { planetCount = Int($0) }
+        )
+    }
+
+    private var shipPlanetCountBinding: Binding<Double> {
+        Binding(
+            get: { Double(shipPlanetCount) },
+            set: { shipPlanetCount = Int($0) }
         )
     }
 }

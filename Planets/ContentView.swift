@@ -81,6 +81,8 @@ struct ContentView: View {
                     gameMode = false
                 }
                 GameFeedback(simulation: simulation)
+            } else {
+                ShipSounds(simulation: simulation)
             }
         }
         .sheet(isPresented: $showPreferences) {
@@ -278,6 +280,34 @@ private struct FeedbackTrigger: View {
                 case .won: GameSounds.shared.playWin()
                 case .lost: GameSounds.shared.playLose()
                 }
+            }
+    }
+}
+
+/// Contemplation : bruit de blaster à chaque tir du vaisseau. Le nombre de tirs est relu
+/// 20 fois par seconde, sans redessiner l'espace.
+private struct ShipSounds: View {
+    let simulation: Simulation
+    @AppStorage(PrefKey.shipSounds) private var sounds = SimulationSettings.defaults.shipSounds
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.05)) { _ in
+            BlasterTrigger(shots: simulation.laserShots, sounds: sounds)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onAppear { _ = GameSounds.shared }
+    }
+}
+
+private struct BlasterTrigger: View {
+    let shots: Int
+    let sounds: Bool
+
+    var body: some View {
+        Color.clear
+            .onChange(of: shots) { old, new in
+                if sounds, new > old { GameSounds.shared.playBlaster() }
             }
     }
 }
