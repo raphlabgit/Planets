@@ -144,6 +144,9 @@ struct Ship {
     /// Vitesse de départ (points/s) : il traverse l'écran tranquillement.
     static let launchSpeed = 55.0...80.0
     static let maxSpeed = 300.0
+    /// Virage maximal sous l'effet de la gravité (radians/s) : sa trajectoire s'infléchit
+    /// sans jamais repartir brusquement en arrière.
+    static let maxTurnRate = 0.6
     /// Au-delà, il s'éclipse doucement (s'il reste par exemple pris en orbite autour d'une planète).
     static let maxLifetime = 40.0
     static let fadeOut = 1.0

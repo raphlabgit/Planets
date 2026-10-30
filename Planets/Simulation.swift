@@ -690,8 +690,17 @@ final class Simulation {
             ship = current
             return
         }
-        current.velocity = (current.velocity + shipAcceleration(at: current.position) * h)
-            .clamped(maxLength: Ship.maxSpeed)
+        // Ses moteurs gardent sa vitesse : la gravité ne fait que tourner sa trajectoire, et
+        // sans à-coup. Sinon, en frôlant une grosse planète, il fait demi-tour comme s'il rebondissait.
+        let speed = current.velocity.length
+        if speed > 0 {
+            let heading = current.velocity / speed
+            let pull = shipAcceleration(at: current.position)
+            let sideways = heading.x * pull.y - heading.y * pull.x
+            let turn = max(-Ship.maxTurnRate, min(Ship.maxTurnRate, sideways / speed)) * h
+            let angle = atan2(heading.y, heading.x) + turn
+            current.velocity = Vec2(angle: angle, length: speed)
+        }
         current.position += current.velocity * h
 
         for hole in blackHoles {
@@ -746,7 +755,7 @@ final class Simulation {
         )
     }
 
-    /// Gravité subie par le vaisseau (il n'en exerce aucune) : c'est la seule chose qui le dévie.
+    /// Gravité subie par le vaisseau (il n'en exerce aucune) : c'est la seule chose qui change son orientation.
     /// Il ne touche jamais les planètes et passe au-dessus d'elles ; l'adoucissement vaut au moins
     /// leur rayon, pour qu'en les survolant il ne soit pas projeté à toute vitesse.
     private func shipAcceleration(at position: Vec2) -> Vec2 {

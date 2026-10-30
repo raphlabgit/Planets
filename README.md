@@ -32,7 +32,8 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
   « Nombre de planètes » des préférences (même masse totale) ; s'il n'en reste aucune, l'animation recommence depuis le début.
 - Quand il ne reste que **5 planètes ou moins** (réglable dans les préférences), un **vaisseau ovni** entre par le bord
   gauche ou droit et traverse lentement l'écran. Il n'a aucune gravité, mais celle des planètes et des trous noirs dévie
-  sa route (c'est la seule chose qui le dévie : il ne touche jamais les planètes et passe au-dessus d'elles).
+  sa route : sa vitesse reste la même, la gravité ne fait que tourner sa trajectoire, progressivement
+  (il ne touche jamais les planètes et passe au-dessus d'elles).
   Un trou noir peut l'avaler (il tournoie et disparaît dedans).
   Il tire au **laser** sur la planète la plus proche devant lui, qui éclate en quelques débris (une toute petite planète
   est pulvérisée), avec un petit bruit de blaster (désactivable). Purement décoratif.
