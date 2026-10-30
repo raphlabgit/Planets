@@ -668,8 +668,8 @@ final class Simulation {
 
     // MARK: - Vaisseau (contemplation)
 
-    /// Fait apparaître, avancer et tirer le vaisseau, et le retire quand il a quitté l'écran,
-    /// s'est évanoui ou a été avalé par un trou noir.
+    /// Fait apparaître, avancer et tirer le vaisseau, et le retire quand il a quitté l'écran
+    /// ou a été avalé par un trou noir.
     private func updateShip(_ h: Double) {
         lasers.removeAll { $0.progress(at: time) >= 1 }
         guard !isGame else { return }
@@ -804,22 +804,32 @@ final class Simulation {
         return best?.index
     }
 
-    /// Le laser fait éclater la planète en quelques débris (la masse est conservée) ;
-    /// une toute petite planète est simplement pulvérisée.
+    /// Le laser fait éclater la planète en une gerbe de toutes petites planètes (de la taille
+    /// minimale des préférences), projetées dans toutes les directions. Il y en a autant que sa
+    /// masse en permet, dans la limite de `maxPlanets` ; une planète déjà minuscule est pulvérisée.
     private func fireLaser(from origin: Vec2, at index: Int) {
         let target = planets.remove(at: index)
         lasers.append(Laser(from: origin, to: target.position, birth: time))
         laserShots += 1
-        let pieces = min(5, max(2, Int(target.size / 6)))
-        guard target.mass / Double(pieces) >= 4 else { return }
-        let debris = scatter(
-            mass: target.mass,
-            around: target.position,
-            spread: target.radius,
-            velocity: target.velocity * target.mobility(reference: settings.maxSize),
-            count: pieces,
-            speed: settings.explosionSpeed * 0.5
-        )
+        let pieceSize = max(1, settings.minSize)
+        let room = Self.maxPlanets - planets.count
+        let pieces = min(room, Int(target.mass / (pieceSize * pieceSize)))
+        guard pieces >= 2 else { return }
+        let carried = target.velocity * target.mobility(reference: settings.maxSize)
+        let baseAngle = Double.random(in: 0..<(2 * .pi))
+        let debris = (0..<pieces).map { k -> Planet in
+            // Un éclat par secteur : la gerbe couvre tout le tour, sans trou.
+            let angle = baseAngle + 2 * .pi * (Double(k) + Double.random(in: 0..<1)) / Double(pieces)
+            let direction = Vec2(angle: angle, length: 1)
+            return Planet(
+                id: makeID(),
+                position: target.position + direction * target.radius * Double.random(in: 0.3...1),
+                velocity: carried + direction * ejectionSpeed(settings.explosionSpeed * 0.5, mass: target.mass,
+                                                              distance: target.radius),
+                size: pieceSize * Double.random(in: 1...1.3),
+                immuneUntil: time + Self.fragmentImmunity
+            )
+        }
         shipDebris = shipDebris.filter { $0.value > time }
         for piece in debris {
             shipDebris[piece.id] = time + Ship.debrisRespite

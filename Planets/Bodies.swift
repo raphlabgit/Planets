@@ -147,9 +147,6 @@ struct Ship {
     /// Virage maximal sous l'effet de la gravité (radians/s) : sa trajectoire s'infléchit
     /// sans jamais repartir brusquement en arrière.
     static let maxTurnRate = 0.6
-    /// Au-delà, il s'éclipse doucement (s'il reste par exemple pris en orbite autour d'une planète).
-    static let maxLifetime = 40.0
-    static let fadeOut = 1.0
     /// Durée de l'aspiration en spirale dans un trou noir.
     static let fallDuration = 0.8
     /// Portée du laser, en part du petit côté de la fenêtre.
@@ -168,9 +165,9 @@ struct Ship {
         fall.map { min(1, max(0, (time - $0.start) / Self.fallDuration)) }
     }
 
-    /// Vrai une fois avalé par un trou noir ou à la fin de sa durée de vie.
+    /// Vrai une fois avalé par un trou noir (sinon il ne disparaît qu'en quittant l'écran).
     func isGone(at time: Double) -> Bool {
-        age(at: time) >= Self.maxLifetime || (fallProgress(at: time) ?? 0) >= 1
+        (fallProgress(at: time) ?? 0) >= 1
     }
 
     /// Position pendant l'aspiration : il tourne autour du trou noir en s'en rapprochant.
@@ -184,10 +181,9 @@ struct Ship {
         return fall.center + turned * shrink
     }
 
-    /// Opacité : il s'efface à la fin de sa durée de vie ou en tombant dans un trou noir.
+    /// Opacité : il ne s'efface qu'en tombant dans un trou noir.
     func opacity(at time: Double) -> Double {
-        let fading = min(1, max(0, (Self.maxLifetime - age(at: time)) / Self.fadeOut))
-        return min(fading, 1 - (fallProgress(at: time) ?? 0))
+        1 - (fallProgress(at: time) ?? 0)
     }
 }
 

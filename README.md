@@ -35,8 +35,8 @@ Cibles minimales : iOS / iPadOS 17, macOS 14.
   sa route : sa vitesse reste la même, la gravité ne fait que tourner sa trajectoire, progressivement
   (il ne touche jamais les planètes et passe au-dessus d'elles).
   Un trou noir peut l'avaler (il tournoie et disparaît dedans).
-  Il tire au **laser** sur la planète la plus proche devant lui, qui éclate en quelques débris (une toute petite planète
-  est pulvérisée), avec un petit bruit de blaster (désactivable). Purement décoratif.
+  Il tire au **laser** sur la planète la plus proche devant lui, qui éclate en une gerbe de toutes petites planètes
+  (de la taille minimale des préférences) projetées dans toutes les directions, avec un petit bruit de blaster (désactivable). Purement décoratif.
 - Plein écran sur iPhone ; fenêtre redimensionnable sur iPad (Split View, Stage Manager) et sur Mac.
 
 ## Mode jeu « Deviens un soleil »
