@@ -125,8 +125,8 @@ struct Impact {
 
 /// Vaisseau ovni du mode contemplation, purement décoratif : sans masse, il traverse l'écran
 /// porté par sa vitesse de départ et dévié par la gravité des planètes et des trous noirs.
-/// Il ne s'écrase jamais : au contact d'une planète, il glisse autour d'elle et accélère jusqu'à
-/// s'en libérer. Il tire au laser sur les planètes devant lui, et un trou noir peut l'avaler.
+/// Seule la gravité change sa direction : il ne touche jamais les planètes et passe au-dessus.
+/// Il tire au laser sur les planètes devant lui, et un trou noir peut l'avaler.
 struct Ship {
     var position: Vec2
     var velocity: Vec2
@@ -138,11 +138,6 @@ struct Ship {
     /// Aspiration par un trou noir : début, centre du trou noir, position de départ et sens
     /// de rotation (+1 ou -1, celui dans lequel il arrivait autour du trou noir).
     var fall: (start: Double, center: Vec2, from: Vec2, turn: Double)?
-    /// Vitesse maximale du moment : relevée pour s'arracher à une grosse planète, puis qui
-    /// redescend peu à peu à `maxSpeed`.
-    var speedLimit = Ship.maxSpeed
-    /// Planète touchée dont il est en train de se libérer en tournant autour (nil sinon).
-    var escaping: Int?
 
     /// Largeur du vaisseau dans une fenêtre de référence (720 points de petit côté).
     static let baseWidth = 70.0
@@ -154,8 +149,6 @@ struct Ship {
     static let fadeOut = 1.0
     /// Durée de l'aspiration en spirale dans un trou noir.
     static let fallDuration = 0.8
-    /// Poussée (points/s²) avec laquelle il tourne autour d'une planète touchée pour s'en libérer.
-    static let boost = 800.0
     /// Portée du laser, en part du petit côté de la fenêtre.
     static let laserRange = 0.45
     /// Demi-angle (radians) du cône de tir devant le vaisseau.
